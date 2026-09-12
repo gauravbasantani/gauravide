@@ -441,3 +441,26 @@
     padding-inline: var(--space-4);
   }
 }
+
+/* The saved split settles in, same motion as the dashboard. */
+@keyframes detailIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.hero,
+.grid,
+.card,
+.actions {
+  animation: detailIn 340ms var(--ease-out) both;
+}
+
+.grid {
+  animation-delay: 50ms;
+}
+
+.actions {
+  animation-delay: 100ms;
+}

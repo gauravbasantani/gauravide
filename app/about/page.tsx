@@ -15,7 +15,8 @@ export default function About() {
       <div className={styles.card}>
         <h2>How it works</h2>
         <p>
-          <strong>1. Snap.</strong> Take a photo of the receipt, or upload an image or PDF.
+          <strong>1. Snap.</strong> Photograph the receipt — in the app on a laptop or iPad, with
+          the normal camera on a phone — or upload an image or PDF.
         </p>
         <p>
           <strong>2. Check.</strong> Every line is read back to you, editable. Anything the scan
@@ -26,7 +27,9 @@ export default function About() {
           every tap — there is no Calculate button.
         </p>
         <p>
-          <strong>4. Done.</strong> One tap creates the expense in Splitwise.
+          <strong>4. Done.</strong> Choose who paid — one person or several — and one tap creates
+          the expense in Splitwise. It is saved under Your splits, with the photo, and can be
+          edited or deleted later.
         </p>
       </div>
 
@@ -55,13 +58,20 @@ export default function About() {
           is used, and you can always type items in by hand.
         </p>
         <p>
+          When you are signed in, your split and its receipt photo are saved to{' '}
+          <strong>your account only</strong>: private storage, an ownership check on every read,
+          and both deleted together when you remove the split. Signed out, nothing is kept.
+        </p>
+        <p>
           Your Splitwise access token is held in an encrypted, browser-only cookie. It is never
           stored in a database and never sent to the browser in readable form.{' '}
           <strong>Your Splitwise password never touches this app</strong> — signing in happens on
           Splitwise&rsquo;s own site.
         </p>
         <p>
-          Any usage statistics collected are anonymous and never include what you bought.
+          Usage statistics are counts only — receipts scanned, splits sent, money split as a
+          total, how often people return. They never include what you bought, who you split with,
+          or what anyone owes, and accounts appear under a keyed pseudonym, never a name or email.
         </p>
       </div>
 

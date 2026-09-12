@@ -689,3 +689,76 @@
   border-color: var(--primary);
   color: var(--primary);
 }
+
+/* Numbers land in order, quickly: a slow stagger on a page this dense reads
+   as "nothing loaded". Delays stay under 100ms. */
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.impact,
+.kpis,
+.minis,
+.panel,
+.columns {
+  animation: panelIn 280ms var(--ease-out) backwards;
+}
+
+.kpis {
+  animation-delay: 40ms;
+}
+
+.panel,
+.columns {
+  animation-delay: 80ms;
+}
+
+/* ── Groups: four labelled bands instead of one wall of numbers ── */
+.group {
+  margin-bottom: var(--space-10);
+}
+
+.groupHead {
+  display: grid;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--primary);
+}
+
+.groupEyebrow {
+  color: var(--primary);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.groupHint {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-meta);
+}
+
+.group .panelHead h3 {
+  margin: 0;
+  font-size: var(--text-section);
+  font-weight: 600;
+}
+
+.subhead {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--text-meta);
+  font-weight: 600;
+}

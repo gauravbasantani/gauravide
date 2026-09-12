@@ -43,21 +43,18 @@
   background: var(--bg-subtle);
 }
 
+/* One column, equal widths: three actions of different widths read as a
+   mistake, and the eye has to re-measure each one. */
 .actions {
   display: grid;
   gap: var(--space-3);
   width: 100%;
-  max-width: 20rem;
+  max-width: 22rem;
+  justify-items: stretch;
 }
 
-@media (min-width: 640px) {
-  .actions {
-    grid-template-columns: 1fr 1fr;
-    max-width: 26rem;
-  }
-  .primaryAction {
-    grid-column: 1 / -1;
-  }
+.actions > * {
+  width: 100%;
 }
 
 .hint {
@@ -189,7 +186,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: var(--cta-height);
   padding: 0 var(--space-5);
   border-radius: var(--radius-md);
   font-weight: 600;

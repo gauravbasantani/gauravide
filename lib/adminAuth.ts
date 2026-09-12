@@ -66,6 +66,12 @@ export async function endAdminSession(): Promise<void> {
   jar.delete(COOKIE)
 }
 
+/** Signed in with the admin password specifically (not the Splitwise allowlist). */
+export async function hasAdminSession(): Promise<boolean> {
+  const jar = await cookies()
+  return readAdminToken(jar.get(COOKIE)?.value)
+}
+
 export async function isAdminRequest(): Promise<boolean> {
   const jar = await cookies()
   if (await readAdminToken(jar.get(COOKIE)?.value)) return true

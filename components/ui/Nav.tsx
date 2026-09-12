@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { getSession } from '@/lib/session'
-import { isAdminRequest } from '@/lib/adminAuth'
+import { hasAdminSession, isAdminRequest } from '@/lib/adminAuth'
 import { splitwiseConfigured } from '@/lib/splitwise'
 import styles from './Nav.module.css'
 
@@ -9,6 +9,10 @@ export async function Nav() {
   const session = await getSession()
   const signedIn = Boolean(session.accessToken)
   const showAdmin = await isAdminRequest()
+  // Two different sessions can exist at once. Name the admin one, so the
+  // navbar's Splitwise "Sign in" never reads as a contradiction next to the
+  // admin dashboard's "Sign out of admin".
+  const adminSession = await hasAdminSession()
 
   return (
     <header className={styles.nav}>
@@ -37,7 +41,8 @@ export async function Nav() {
             Your splits
           </Link>
         ) : null}
-        {showAdmin ? (
+        {/* The badge below already links to /admin during an admin session. */}
+        {showAdmin && !adminSession ? (
           <Link href="/admin" className={[styles.link, styles.hideSmall].join(' ')}>
             Admin
           </Link>
@@ -45,6 +50,13 @@ export async function Nav() {
         <Link href="/faq" className={[styles.link, styles.hideSmall].join(' ')}>
           FAQ
         </Link>
+
+        {adminSession ? (
+          <Link href="/admin" className={styles.adminBadge}>
+            <span aria-hidden="true">🔒</span>
+            Admin
+          </Link>
+        ) : null}
 
         {signedIn ? (
           <>

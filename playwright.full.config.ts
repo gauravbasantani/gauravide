@@ -44,7 +44,17 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'desktop',
+      use: {
+        ...devices['Desktop Chrome'],
+        permissions: ['camera'],
+        // A fake webcam, so the in-app camera can be driven for real.
+        launchOptions: {
+          args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+        },
+      },
+    },
     { name: 'mobile', use: { ...devices['iPhone 13'] } },
   ],
   webServer: [
@@ -71,6 +81,10 @@ export default defineConfig({
         ADMIN_USER_IDS: '101',
         ADMIN_USERNAME,
         ADMIN_PASSWORD_HASH,
+        // The reset email goes to the stand-in, so the whole flow is testable.
+        RESEND_API_KEY: 'e2e-resend-key',
+        RESEND_API_URL: `${MOCK}/emails`,
+        ADMIN_EMAIL: 'admin@example.com',
         APP_URL: 'http://localhost:3211',
         GEMINI_API_KEY: '',
         OCRSPACE_API_KEY: '',

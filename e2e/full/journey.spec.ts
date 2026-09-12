@@ -401,8 +401,8 @@ test('admin signs in with a username and password and sees the numbers', async (
   await expect(page.getByText(/involving 2 people/)).toBeVisible()
   await expect(page.getByText('Sushi')).toHaveCount(0) // never what anyone bought
   // How often, and how much it saves each person.
-  await expect(page.getByRole('heading', { name: 'How often people use it' })).toBeVisible()
-  await expect(page.locator('[data-kpi="weekly-active"] dd')).toHaveText('1')
+  await expect(page.getByRole('heading', { name: 'How often they come back' })).toBeVisible()
+  await expect(page.locator('[data-kpi="weekly-active"] strong')).toHaveText('1')
   await expect(page.locator('[data-kpi="time-per-person"] dd')).toContainText(/min|hours/)
   await expect(page.getByRole('heading', { name: 'Time saved each week' })).toBeVisible()
   await expect(page.getByText(/saved per person who sent a split/)).toBeVisible()
@@ -413,7 +413,7 @@ test('admin signs in with a username and password and sees the numbers', async (
   await expect(page.getByRole('columnheader', { name: 'Sent to Splitwise' })).toBeVisible()
   if (!isMobile) await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible()
 
-  await page.getByRole('button', { name: /^sign out$/i }).click()
+  await page.getByRole('button', { name: /sign out of admin/i }).click()
   await expect(page).toHaveURL(/\/admin\/login$/)
   await page.goto('/admin')
   await expect(page).toHaveURL(/\/admin\/login$/)
@@ -477,7 +477,7 @@ test('forgot password: the emailed link sets a new one, and it can be changed ag
 
   // The newest password is the one that works.
   await page.getByRole('link', { name: /back to the dashboard/i }).click()
-  await page.getByRole('button', { name: /^sign out$/i }).click()
+  await page.getByRole('button', { name: /sign out of admin/i }).click()
   await page.getByLabel('Username').fill(ADMIN_USERNAME)
   await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: /^sign in$/i }).click()
@@ -489,16 +489,26 @@ test('forgot password: the emailed link sets a new one, and it can be changed ag
   expect(problems).toEqual([])
 })
 
-test('the camera button only appears where there is a camera', async ({ page, isMobile }) => {
+test('the camera takes the photo in the app on a laptop', async ({ page, isMobile }) => {
   await page.goto('/new')
-  const camera = page.getByText('Take a photo', { exact: true })
+  await expect(page.getByText('Choose a file')).toBeVisible()
+
   if (isMobile) {
-    await expect(camera).toBeVisible()
-  } else {
-    await expect(camera).toHaveCount(0)
-    await expect(page.getByText('Choose a receipt file')).toBeVisible()
-    await expect(page.getByText(/on your phone you can photograph the receipt/i)).toBeVisible()
+    // A phone opens its own camera app through the file input; nothing to drive here.
+    await expect(page.getByText('Take a photo', { exact: true })).toBeVisible()
+    return
   }
+
+  await page.getByRole('button', { name: 'Take a photo' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('heading', { name: /take a photo of the receipt/i })).toBeVisible()
+  await expect(dialog.getByLabel('Camera preview')).toBeVisible()
+  await dialog.getByRole('button', { name: /take photo/i }).click()
+
+  // The shot goes straight into the flow, like any other picture.
+  await expect(page.getByText(/receipt ready/i)).toBeVisible()
+  await expect(page.getByAltText(/preview of the receipt/i)).toBeVisible()
+  await expect(page.getByRole('button', { name: /read this receipt/i })).toBeVisible()
 })
 
 test('each step starts at the top, and a lone discount is refused', async ({ page }) => {

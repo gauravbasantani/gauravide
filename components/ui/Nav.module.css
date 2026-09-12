@@ -140,3 +140,24 @@
     display: none;
   }
 }
+
+/* An admin session is a different thing from a Splitwise sign-in: say so. */
+.adminBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: var(--radius-full);
+  background: var(--primary-subtle);
+  color: var(--primary);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.adminBadge:hover {
+  border-color: var(--primary);
+}

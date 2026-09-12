@@ -849,3 +849,63 @@ size and weight — strip every colour out and it must still read correctly.
 - Remembering who usually shares what
 - History of past splits (requires a DB — and therefore a real security review)
 - Recurring / subscription splits
+
+---
+
+## What changed on 2026-09-12 (flows to read alongside the screens above)
+
+### Screen 1 — Add the receipt
+- **Phone:** "Take a photo" opens the native camera (full resolution).
+- **Laptop / desktop / iPad:** "Take a photo" opens an in-app viewfinder — live preview, one
+  shutter, and the shot goes straight into the flow. Never mirrored, so the text reads correctly.
+  Permission refused says so and points at "Choose a file".
+- **No camera at all:** the button is absent rather than opening a file picker under a photo label.
+- Three actions, one column, equal width: Take a photo · Choose a file · Type it in.
+
+### Screen 2 — Check the items
+- Register noise is stripped from names ("512599 \*\*KS TOWEL\*\*" → "KS TOWEL"); a bare negative
+  line becomes "Discount · SNAPS".
+- The receipt photo sits above the list, collapsed, to check lines against.
+- Three numbered sections (where and when · items · tax, tip and fees) and a totals panel that
+  says whether it adds up to the printed total.
+
+### Screen 3 — Who's splitting
+- **Signed out:** Splitwise sign-in leads; "Split without signing in" is a disclosure that states
+  its limit (names only, can't be sent to Splitwise). A name added that way can be linked to a
+  real friend later with **Link**, and its items, shares and payments move across.
+- **Signed in:** you are added automatically. Friends first in the sheet, then "Not in your
+  friends list yet?" with the email invite.
+- Four modes, switchable at any time: by item · equally · by shares · exact amounts.
+- **One line, split unevenly:** every item has "Split unevenly" — equally, by shares (2 : 1), or
+  exact amounts; a quantity line can also become one line per unit. Its tax follows the same split.
+- **Discounts follow their item.** A negative line nobody has assigned goes to whoever had the
+  item it discounts ("↳ Follows HVST SNAPS"); tapping a face on it overrides that.
+- Running totals show item amounts only while the split is incomplete ("So far"), never tax
+  spread across people who have nothing yet.
+
+### Screen 4 — Who paid, and send
+- One payer (you by default) or several with amounts that must cover the total.
+- **Someone else paid:** any Splitwise friend can be the payer without being in the split; they
+  owe nothing unless given items.
+- Settle-up preview: each person's share, what they paid, net "gets back" / "owes", and the
+  simplest transfers.
+- Group picker: best match first with who's missing, top three then "Show more", No group, and
+  Create a new group inline.
+- **Refused before sending:** a share below zero (a discount given to someone without the item),
+  a zero or negative total, items that don't match the receipt, or payments that don't add up.
+- Sending is idempotent: a refresh or a double tap never makes a second expense.
+
+### After sending — Your splits
+- The receipt photo is uploaded to private storage and kept with the split (📷 on the row).
+- The split page shows the photo beside who paid and who owes, then every item with who shared
+  it and how, then Edit / Open in Splitwise / archive / remove / delete.
+- **Edit split** reopens the whole flow and updates the same Splitwise expense — never a duplicate.
+
+### Admin (superuser only)
+- `/admin` redirects to `/admin/login`: username and password only (the Splitwise route was
+  removed because the allowlist is empty). Forgot password emails a one-time 30-minute link;
+  without email configured the page gives the offline route. Change password needs the current one.
+- The navbar shows a "🔒 Admin" badge while an admin session is open, and the dashboard's button
+  reads "Sign out of admin" — the app's own Splitwise sign-in is a separate thing.
+- The dashboard answers: how many people, how often they come back, how much was split, and how
+  much time it saved — counts only, no receipt contents, accounts under keyed pseudonyms.

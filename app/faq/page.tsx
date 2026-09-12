@@ -31,10 +31,51 @@ const QA: { q: string; a: React.ReactNode }[] = [
   {
     q: 'Is my receipt stored? Who can see it?',
     a: (
+      <>
+        <p>
+          The photo is stripped of location data in your browser, then sent to Google Gemini to
+          read the items. That is the only place receipt contents leave this app.
+        </p>
+        <p>
+          If you are signed in, the photo is also kept privately with that saved split so you can
+          look at it later. It is stored in a private bucket, served only to your own account after
+          a check on every request, and deleted when you remove the split from your dashboard.
+          Signed out, nothing is stored anywhere.
+        </p>
+      </>
+    ),
+  },
+  {
+    q: 'Can I take the photo on a laptop or iPad?',
+    a: (
       <p>
-        The photo is stripped of location data in your browser, then sent to Google Gemini to read
-        the items. That is the only place receipt contents leave this app. Nobody else can see your
-        receipts or your splits.
+        Yes. &ldquo;Take a photo&rdquo; opens your camera in the app, you press the shutter, and
+        the shot goes straight into the split. On a phone it opens the normal camera instead, which
+        takes a sharper picture. If a device has no camera, the button is not shown — it would open
+        a file picker, which is not what &ldquo;take a photo&rdquo; means.
+      </p>
+    ),
+  },
+  {
+    q: 'Can I change a split after sending it?',
+    a: (
+      <p>
+        Yes. Open it under Your splits and choose <strong>Edit split</strong>: items, people, who
+        paid and the group are all editable, and saving updates the same Splitwise expense for
+        everyone rather than creating a second one. You can also archive it, remove just your copy,
+        or delete it from Splitwise for everyone — that last one always asks first.
+      </p>
+    ),
+  },
+  {
+    q: 'What can the person who runs Gauravide see?',
+    a: (
+      <p>
+        Counts, not contents. The admin dashboard shows how many people used it, how many receipts
+        were scanned and sent, money split as a total per currency, and how often people come back.
+        It cannot show receipt images, item names, merchants, who owes whom, or anyone&rsquo;s
+        individual amounts, and accounts appear under a keyed pseudonym rather than a name or
+        email. It is behind a password.
       </p>
     ),
   },

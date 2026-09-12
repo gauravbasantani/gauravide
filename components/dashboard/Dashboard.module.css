@@ -311,3 +311,22 @@
     height: 40px;
   }
 }
+
+/* Rows arrive together rather than snapping in. */
+@keyframes listIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.stats,
+.list,
+.empty,
+.notice {
+  animation: listIn 360ms var(--ease-out) both;
+}
+
+.month + .month .list {
+  animation-delay: 60ms;
+}

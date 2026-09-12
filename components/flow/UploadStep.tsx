@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { CameraCapture } from './CameraCapture'
 import { prepareImage, previewUrl } from '@/lib/image'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import styles from './UploadStep.module.css'
@@ -31,15 +32,18 @@ export function UploadStep({ onExtracted, onManual }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [hasCamera, setHasCamera] = useState(false)
+  const [cameraMode, setCameraMode] = useState<'none' | 'native' | 'in-app'>('none')
+  const [cameraOpen, setCameraOpen] = useState(false)
   const previewRef = useRef<string | null>(null)
 
-  // "Take a photo" opens a file picker on a laptop — `capture` only reaches a
-  // camera on phones and tablets. Offering it there tells the user something
-  // untrue about what will happen, so it appears only where it works.
+  // Phones: the native camera app through <input capture> — full resolution and
+  // familiar framing. Laptops and tablets: the camera exists only through
+  // getUserMedia, so the app shows its own viewfinder rather than quietly
+  // opening a file picker under a "Take a photo" label (FR-44, FR-44a).
   useEffect(() => {
     const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false
-    setHasCamera(touch && Boolean(navigator.mediaDevices?.getUserMedia))
+    const webcam = Boolean(navigator.mediaDevices?.getUserMedia)
+    setCameraMode(touch && webcam ? 'native' : webcam ? 'in-app' : 'none')
   }, [])
 
   useEffect(() => {
@@ -227,8 +231,8 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </div>
 
         <div className={styles.actions}>
-          {hasCamera ? (
-            <label className={[styles.primaryAction, styles.fakePrimary].join(' ')}>
+          {cameraMode === 'native' ? (
+            <label className={styles.fakePrimary}>
               Take a photo
               <input
                 type="file"
@@ -239,12 +243,13 @@ export function UploadStep({ onExtracted, onManual }: Props) {
               />
             </label>
           ) : null}
-          <label
-            className={[hasCamera ? styles.fakeSecondary : styles.fakePrimary, hasCamera ? '' : styles.primaryAction]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {hasCamera ? 'Choose a file' : 'Choose a receipt file'}
+          {cameraMode === 'in-app' ? (
+            <Button full onClick={() => setCameraOpen(true)}>
+              Take a photo
+            </Button>
+          ) : null}
+          <label className={cameraMode === 'none' ? styles.fakePrimary : styles.fakeSecondary}>
+            Choose a file
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
@@ -258,16 +263,20 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </div>
 
         <p className={styles.hint}>
-          {hasCamera
-            ? 'You can also drag an image here, or paste one. '
-            : 'Drag an image here, or paste one with ⌘V. On your phone you can photograph the receipt instead. '}
-          Photos are stripped of location data before they leave your device.
+          You can also drag an image here, or paste one with ⌘V. Photos are stripped of location
+          data before they leave your device.
         </p>
       </div>
 
       <p className={flow.srHint} style={{ marginTop: 'var(--space-4)' }}>
         JPG, PNG, WEBP, HEIC or PDF, up to 10 MB.
       </p>
+
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => select(file)}
+      />
     </div>
   )
 }

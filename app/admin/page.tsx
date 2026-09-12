@@ -117,8 +117,8 @@ export default async function AdminPage({
           <span className={styles.kicker}>🔒 Admin · only you can see this</span>
           <h1 className={styles.title}>How Gauravide is doing</h1>
           <p className={styles.sub}>
-            Usage across everyone, {rangeLabel}. Aggregate numbers only — never what anyone bought
-            or who owes whom.
+            Everything below is {rangeLabel}, counted across everyone. Aggregate numbers only —
+            never what anyone bought or who owes whom.
           </p>
         </div>
         <div className={styles.controls}>
@@ -138,7 +138,7 @@ export default async function AdminPage({
           </Link>
           <form action="/api/admin/logout" method="post">
             <button type="submit" className={styles.signOut}>
-              Sign out
+              Sign out of admin
             </button>
           </form>
         </div>
@@ -150,7 +150,7 @@ export default async function AdminPage({
         </p>
       ) : null}
 
-      {/* ── Impact ─────────────────────────────────────────────── */}
+      {/* ── The one number that matters ─────────────────────────── */}
       <section className={styles.impact} aria-labelledby="impact-title">
         <span id="impact-title" className={styles.impactKicker}>
           Time you’ve saved people
@@ -181,79 +181,42 @@ export default async function AdminPage({
         </p>
       </section>
 
-      {/* ── Headline numbers ───────────────────────────────────── */}
-      <section className={styles.kpis} aria-label="Headline numbers">
-        <Kpi
-          id="people"
-          label="People who used it"
-          value={count(m.people.total)}
-          note={`${count(m.people.accounts)} signed in · ${count(m.people.guests)} signed-out browsers (counted per browser)`}
-        />
-        <Kpi
-          id="scanned"
-          label="Receipts scanned"
-          value={count(m.receiptsScanned)}
-          note={`${pct(m.scanToSend)} of scans reached Splitwise`}
-        />
-        <Kpi
-          id="sent"
-          label="Splits sent to Splitwise"
-          value={count(m.splitsSent)}
-          note={`${count(m.splitsEdited)} edited afterwards`}
-        />
-        <Kpi
-          id="money"
-          label="Money split"
-          value={primaryMoney ? formatMoney(primaryMoney.cents, primaryMoney.currency) : formatMoney(0)}
-          note={
-            m.money.length > 1
-              ? m.money
-                  .slice(1)
-                  .map((x) => formatMoney(x.cents, x.currency))
-                  .join(' · ')
-              : m.averageReceipt
-                ? `about ${formatMoney(m.averageReceipt.cents, m.averageReceipt.currency)} per receipt`
-                : 'in saved splits'
-          }
-        />
-      </section>
-
-      <section className={styles.minis} aria-label="More numbers">
-        <Mini label="New accounts" value={count(m.people.newAccounts)} />
-        <Mini label="Active in the last 7 days" value={count(m.people.active7)} />
-        <Mini label="Came back (2+ splits)" value={count(m.people.returning)} />
-        <Mini label="People in their splits" value={count(m.peopleHelped)} />
-        <Mini label="Items split" value={count(m.itemsSplit)} />
-      </section>
-
-      {/* ── Activity ───────────────────────────────────────────── */}
-      <section className={styles.panel} aria-labelledby="activity-title">
-        <div className={styles.panelHead}>
-          <h2 id="activity-title">Daily activity</h2>
-          <span>Last {m.daily.length} days · UTC</span>
+      {/* ── 1. People ───────────────────────────────────────────── */}
+      <Group
+        id="people"
+        eyebrow="Who"
+        title="People"
+        hint="How many are using it, and whether they come back for a second receipt."
+      >
+        <div className={styles.kpis}>
+          <Kpi
+            id="people"
+            label="People who used it"
+            value={count(m.people.total)}
+            note={`${count(m.people.accounts)} signed in · ${count(m.people.guests)} signed-out browsers`}
+          />
+          <Kpi id="new" label="New accounts" value={count(m.people.newAccounts)} note={rangeLabel} />
+          <Kpi
+            id="weekly-active"
+            label="Active this week"
+            value={count(m.frequency.weeklyActive)}
+            note={`${count(m.frequency.monthlyActive)} active this month`}
+          />
+          <Kpi
+            id="returning"
+            label="Came back"
+            value={count(m.people.returning)}
+            note="sent more than one split"
+          />
         </div>
-        <div className={styles.panelBody}>
-          <ActivityChart daily={m.daily} />
-        </div>
-      </section>
 
-      <div className={styles.columns}>
-        {/* ── How often ─────────────────────────────────────────── */}
         <section className={styles.panel} aria-labelledby="frequency-title">
           <div className={styles.panelHead}>
-            <h2 id="frequency-title">How often people use it</h2>
+            <h3 id="frequency-title">How often they come back</h3>
             <span>Signed-in accounts</span>
           </div>
           <div className={styles.panelBody}>
             <dl className={styles.stats}>
-              <div data-kpi="weekly-active">
-                <dt>Active this week</dt>
-                <dd>{count(m.frequency.weeklyActive)}</dd>
-              </div>
-              <div>
-                <dt>Active this month</dt>
-                <dd>{count(m.frequency.monthlyActive)}</dd>
-              </div>
               <div>
                 <dt>Come back each week</dt>
                 <dd>{pct(m.frequency.stickiness)}</dd>
@@ -277,7 +240,7 @@ export default async function AdminPage({
                 <small>{rangeLabel}</small>
               </div>
             </dl>
-            <h3 className={styles.subhead}>How many times each account has split</h3>
+            <h4 className={styles.subhead}>How many times each account has split</h4>
             <HBars
               rows={[
                 { label: 'Once', value: m.frequency.buckets.once },
@@ -288,131 +251,224 @@ export default async function AdminPage({
             />
           </div>
         </section>
+      </Group>
 
-        {/* ── Time saved each week ──────────────────────────────── */}
+      {/* ── 2. Receipts and money ───────────────────────────────── */}
+      <Group
+        id="receipts"
+        eyebrow="What"
+        title="Receipts and money"
+        hint="What actually went through the app, and what it was worth."
+      >
+        <div className={styles.kpis}>
+          <Kpi
+            id="scanned"
+            label="Receipts scanned"
+            value={count(m.receiptsScanned)}
+            note={`${pct(m.scanToSend)} of scans reached Splitwise`}
+          />
+          <Kpi
+            id="sent"
+            label="Splits sent to Splitwise"
+            value={count(m.splitsSent)}
+            note={`${count(m.splitsEdited)} edited afterwards`}
+          />
+          <Kpi
+            id="money"
+            label="Money split"
+            value={primaryMoney ? formatMoney(primaryMoney.cents, primaryMoney.currency) : formatMoney(0)}
+            note={
+              m.money.length > 1
+                ? m.money
+                    .slice(1)
+                    .map((x) => formatMoney(x.cents, x.currency))
+                    .join(' · ')
+                : m.averageReceipt
+                  ? `about ${formatMoney(m.averageReceipt.cents, m.averageReceipt.currency)} per receipt`
+                  : 'in saved splits'
+            }
+          />
+          <Kpi
+            id="helped"
+            label="People in their splits"
+            value={count(m.peopleHelped)}
+            note={`${count(m.itemsSplit)} items split`}
+          />
+        </div>
+
+        <section className={styles.panel} aria-labelledby="activity-title">
+          <div className={styles.panelHead}>
+            <h3 id="activity-title">Day by day</h3>
+            <span>Last {m.daily.length} days · UTC</span>
+          </div>
+          <div className={styles.panelBody}>
+            <ActivityChart daily={m.daily} />
+          </div>
+        </section>
+
         <section className={styles.panel} aria-labelledby="weekly-title">
           <div className={styles.panelHead}>
-            <h2 id="weekly-title">Time saved each week</h2>
+            <h3 id="weekly-title">Time saved each week</h3>
             <span>Last 8 weeks · minutes</span>
           </div>
           <div className={styles.panelBody}>
             <WeeklyChart weekly={m.weekly} />
           </div>
         </section>
-      </div>
+      </Group>
 
-      <div className={styles.columns}>
-        {/* ── How people split ─────────────────────────────────── */}
-        <section className={styles.panel} aria-labelledby="modes-title">
-          <div className={styles.panelHead}>
-            <h2 id="modes-title">How people split</h2>
-            <span>{count(m.splitsSent)} splits sent</span>
-          </div>
-          <div className={styles.panelBody}>
-            <HBars rows={m.modes.map((mode) => ({ label: mode.label, value: mode.count }))} />
-            {m.modesUnknown > 0 ? (
-              <p className={styles.footnote}>{m.modesUnknown} earlier splits didn’t record a mode.</p>
-            ) : null}
-            <dl className={styles.stats}>
-              <div>
-                <dt>Several people paid</dt>
-                <dd>{pct(m.habits.severalPayers)}</dd>
-              </div>
-              <div>
-                <dt>Added to a Splitwise group</dt>
-                <dd>{pct(m.habits.inGroup)}</dd>
-              </div>
-              <div>
-                <dt>Used an uneven item split</dt>
-                <dd>{pct(m.habits.itemSplits)}</dd>
-              </div>
-              <div>
-                <dt>Kept the receipt photo</dt>
-                <dd>{pct(m.habits.withPhoto)}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
+      {/* ── 3. Quality ──────────────────────────────────────────── */}
+      <Group
+        id="quality"
+        eyebrow="How well"
+        title="Quality"
+        hint="Which parts people reach for, and whether the reader is doing its job."
+      >
+        <div className={styles.columns}>
+          <section className={styles.panel} aria-labelledby="modes-title">
+            <div className={styles.panelHead}>
+              <h3 id="modes-title">How people split</h3>
+              <span>{count(m.splitsSent)} splits sent</span>
+            </div>
+            <div className={styles.panelBody}>
+              <HBars rows={m.modes.map((mode) => ({ label: mode.label, value: mode.count }))} />
+              {m.modesUnknown > 0 ? (
+                <p className={styles.footnote}>{m.modesUnknown} earlier splits didn’t record a mode.</p>
+              ) : null}
+              <dl className={styles.stats}>
+                <div>
+                  <dt>Several people paid</dt>
+                  <dd>{pct(m.habits.severalPayers)}</dd>
+                </div>
+                <div>
+                  <dt>Added to a group</dt>
+                  <dd>{pct(m.habits.inGroup)}</dd>
+                </div>
+                <div>
+                  <dt>Uneven item split</dt>
+                  <dd>{pct(m.habits.itemSplits)}</dd>
+                </div>
+                <div>
+                  <dt>Kept the photo</dt>
+                  <dd>{pct(m.habits.withPhoto)}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
 
-        {/* ── Receipt reader ───────────────────────────────────── */}
-        <section className={styles.panel} aria-labelledby="reader-title">
-          <div className={styles.panelHead}>
-            <h2 id="reader-title">Receipt reader</h2>
-            <span>{count(m.reader.gemini + m.reader.backup + m.reader.failed)} attempts</span>
-          </div>
-          <div className={styles.panelBody}>
-            <ReaderRows reader={m.reader} />
-            <p className={styles.footnote}>
-              The backup reader returns rough text, so those people check every line. Failures fall
-              back to typing it in — never a dead end.
-            </p>
-          </div>
-        </section>
-      </div>
-
-      {/* ── Accounts ───────────────────────────────────────────── */}
-      <section className={styles.panel} aria-labelledby="accounts-title">
-        <div className={styles.panelHead}>
-          <h2 id="accounts-title">Accounts</h2>
-          <span>Private label · dates · counts only · most recent 25</span>
+          <section className={styles.panel} aria-labelledby="reader-title">
+            <div className={styles.panelHead}>
+              <h3 id="reader-title">Receipt reader</h3>
+              <span>{count(m.reader.gemini + m.reader.backup + m.reader.failed)} attempts</span>
+            </div>
+            <div className={styles.panelBody}>
+              <ReaderRows reader={m.reader} />
+              <p className={styles.footnote}>
+                The backup reader returns rough text, so those people check every line. Failures
+                fall back to typing it in — never a dead end.
+              </p>
+            </div>
+          </section>
         </div>
-        {users.length === 0 ? (
-          <p className={styles.empty}>No signed-in activity yet.</p>
-        ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Account</th>
-                  <th scope="col">First seen</th>
-                  <th scope="col">Last seen</th>
-                  <th scope="col" className={styles.numCol}>
-                    Receipts scanned
-                  </th>
-                  <th scope="col" className={styles.numCol}>
-                    Splits sent
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <code>{u.id}</code>
-                    </td>
-                    <td>{dateFormat.format(new Date(u.firstSeen))}</td>
-                    <td>{dateFormat.format(new Date(u.lastSeen))}</td>
-                    <td className={styles.numCol}>{count(u.receipts)}</td>
-                    <td className={styles.numCol}>{count(u.splits)}</td>
+      </Group>
+
+      {/* ── 4. Details ──────────────────────────────────────────── */}
+      <Group
+        id="details"
+        eyebrow="Detail"
+        title="Accounts and feedback"
+        hint="One row per signed-in account, under a private label — counts and dates only."
+      >
+        <section className={styles.panel} aria-labelledby="accounts-title">
+          <div className={styles.panelHead}>
+            <h3 id="accounts-title">Accounts</h3>
+            <span>Most recent 25</span>
+          </div>
+          {users.length === 0 ? (
+            <p className={styles.empty}>No signed-in activity yet.</p>
+          ) : (
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Account</th>
+                    <th scope="col">First seen</th>
+                    <th scope="col">Last seen</th>
+                    <th scope="col" className={styles.numCol}>
+                      Receipts scanned
+                    </th>
+                    <th scope="col" className={styles.numCol}>
+                      Splits sent
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <code>{u.id}</code>
+                      </td>
+                      <td>{dateFormat.format(new Date(u.firstSeen))}</td>
+                      <td>{dateFormat.format(new Date(u.lastSeen))}</td>
+                      <td className={styles.numCol}>{count(u.receipts)}</td>
+                      <td className={styles.numCol}>{count(u.splits)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
-      {/* ── Feedback ───────────────────────────────────────────── */}
-      <section className={styles.panel} aria-labelledby="feedback-title">
-        <div className={styles.panelHead}>
-          <h2 id="feedback-title">Feedback inbox</h2>
-          <span>{feedback.length} latest · sent to you on purpose</span>
-        </div>
-        <div className={styles.feedback}>
-          {feedback.length === 0 ? <p className={styles.empty}>No feedback yet.</p> : null}
-          {feedback.map((item) => (
-            <article key={item.id}>
-              <div>
-                <strong>{item.category}</strong>
-                <span>{dateFormat.format(new Date(item.created_at))}</span>
-              </div>
-              <p>{item.message}</p>
-              {item.contact ? <small>Reply address: {item.contact}</small> : null}
-            </article>
-          ))}
-        </div>
-      </section>
+        <section className={styles.panel} aria-labelledby="feedback-title">
+          <div className={styles.panelHead}>
+            <h3 id="feedback-title">Feedback inbox</h3>
+            <span>{feedback.length} latest · sent to you on purpose</span>
+          </div>
+          <div className={styles.feedback}>
+            {feedback.length === 0 ? <p className={styles.empty}>No feedback yet.</p> : null}
+            {feedback.map((item) => (
+              <article key={item.id}>
+                <div>
+                  <strong>{item.category}</strong>
+                  <span>{dateFormat.format(new Date(item.created_at))}</span>
+                </div>
+                <p>{item.message}</p>
+                {item.contact ? <small>Reply address: {item.contact}</small> : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      </Group>
     </div>
+  )
+}
+
+/** A labelled band of the page, so the numbers are read in groups, not as a wall. */
+function Group({
+  id,
+  eyebrow,
+  title,
+  hint,
+  children,
+}: {
+  id: string
+  eyebrow: string
+  title: string
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className={styles.group} aria-labelledby={`${id}-group`}>
+      <header className={styles.groupHead}>
+        <span className={styles.groupEyebrow}>{eyebrow}</span>
+        <h2 id={`${id}-group`} className={styles.groupTitle}>
+          {title}
+        </h2>
+        <p className={styles.groupHint}>{hint}</p>
+      </header>
+      {children}
+    </section>
   )
 }
 
@@ -422,15 +478,6 @@ function Kpi({ id, label, value, note }: { id: string; label: string; value: str
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{note}</small>
-    </div>
-  )
-}
-
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={styles.mini}>
-      <strong>{value}</strong>
-      <span>{label}</span>
     </div>
   )
 }

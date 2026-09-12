@@ -1468,3 +1468,25 @@ an upload — what should it be? … on mobile, tapping Next doesn't go back to 
   first band, rise-in entrances and hover lift — hand-written CSS and inline SVG only (no
   animation library, no external image service), and all of it still under the app's
   reduced-motion rule.
+
+### Camera, docs and policy (added 2026-09-12, sixth pass)
+
+*Gaurav: "as we are not giving take-photo, is our claim untrue? We should give an option to add a
+photo from the camera on a laptop, desktop or iPad … and wherever policies of data, add whatever
+we updated — requirements, userflow, and the web app wherever needed."*
+
+- **FR-44a** **The camera works on every device that has one.** Phones keep the native camera
+  (`<input capture>`) for full resolution. Laptops, desktops and tablets get an in-app
+  viewfinder (`getUserMedia`, back camera preferred, never mirrored so the text reads correctly)
+  with a shutter that hands a JPEG straight to the same pipeline. The stream stops on close, on
+  unmount and after the shot. Permission refused or no camera says so plainly and points at
+  "Choose a file". This keeps the product's promise ("snap a photo") true everywhere, which
+  hiding the button did not.
+- **VIS-10** The three upload actions are one column of equal width — mixed widths read as a
+  mistake and make the eye re-measure each one.
+- **DOC-1** Anything that changes what happens to people's data is written in three places at
+  once: `requirements.md` (the rule), `userflow.md` (the flow), and the app's own **About** and
+  **FAQ** pages (what the user is told). Currently covered there: receipt photos kept privately
+  per account and deleted with the split, Gemini as the only place contents leave the app,
+  aggregate-only admin metrics under a keyed pseudonym, editing and deleting splits, and the
+  camera.
