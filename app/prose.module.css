@@ -1,0 +1,66 @@
+.page {
+  max-width: 42rem; /* ~70ch for prose (TYPE-6) */
+  padding-block: var(--space-8) var(--space-12);
+  display: grid;
+  gap: var(--space-6);
+}
+
+.page h1 {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.page h2 {
+  font-size: var(--text-section);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.page p {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+}
+
+.page p:last-child {
+  margin-bottom: 0;
+}
+
+.page strong {
+  color: var(--text);
+}
+
+.card {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.callout {
+  padding: var(--space-5);
+  background: var(--primary-subtle);
+  border-radius: var(--radius-md);
+}
+
+.callout p {
+  color: var(--text);
+}
+
+.qa {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.disclaimer {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.lead {
+  font-size: var(--text-section);
+  color: var(--text-muted);
+}
