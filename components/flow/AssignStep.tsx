@@ -21,6 +21,7 @@ type Props = {
   assignments: Record<string, string[]>
   onPeople: (people: Person[]) => void
   onAssignments: (a: Record<string, string[]>) => void
+  onAddSplitwisePerson?: (input: { name: string; email: string }) => Promise<SwPerson>
   onBack: () => void
   onNext: () => void
 }
@@ -32,15 +33,20 @@ export function AssignStep({
   assignments,
   onPeople,
   onAssignments,
+  onAddSplitwisePerson,
   onBack,
   onNext,
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
+  const [addingToSplitwise, setAddingToSplitwise] = useState(false)
   const addPersonTrigger = useRef<HTMLButtonElement>(null)
 
   function closeAddPerson() {
     setAdding(false)
+    setAddError(null)
     // The sheet owns focus while it is open. Wait until it is removed before
     // returning focus so keyboard and mobile users always have a clear place
     // to continue from.
@@ -111,7 +117,22 @@ export function AssignStep({
     }
     onAssignments(updated)
     setNewName('')
+    setNewEmail('')
     closeAddPerson()
+  }
+
+  async function addByEmail() {
+    if (!onAddSplitwisePerson || !newName.trim() || !newEmail.trim()) return
+    setAddingToSplitwise(true)
+    setAddError(null)
+    try {
+      const person = await onAddSplitwisePerson({ name: newName.trim(), email: newEmail.trim() })
+      addPerson({ id: String(person.id), name: person.name })
+    } catch (error) {
+      setAddError(error instanceof Error ? error.message : 'Couldn’t add that person to Splitwise.')
+    } finally {
+      setAddingToSplitwise(false)
+    }
   }
 
   const methodLabel =
@@ -170,7 +191,10 @@ export function AssignStep({
             ref={addPersonTrigger}
             type="button"
             className={styles.addPerson}
-            onClick={() => setAdding(true)}
+            onClick={() => {
+              setAddError(null)
+              setAdding(true)
+            }}
           >
             + Add person
           </button>
@@ -270,7 +294,7 @@ export function AssignStep({
         title="Add someone"
         description={
           available
-            ? 'Pick a Splitwise friend, or type a name for someone not on Splitwise.'
+            ? 'Pick a friend, or add someone by email. Splitwise finds their account or sends an invite.'
             : 'Sign in with Splitwise to pick real friends.'
         }
         onClose={closeAddPerson}
@@ -279,9 +303,19 @@ export function AssignStep({
             <Button variant="secondary" onClick={closeAddPerson}>
               Cancel
             </Button>
-            <Button onClick={() => addPerson()} disabled={!newName.trim()}>
-              Add to split
-            </Button>
+            {onAddSplitwisePerson ? (
+              <Button
+                onClick={() => void addByEmail()}
+                disabled={!newName.trim() || !newEmail.trim()}
+                loading={addingToSplitwise}
+              >
+                Add in Splitwise
+              </Button>
+            ) : (
+              <Button onClick={() => addPerson()} disabled={!newName.trim()}>
+                Add to split
+              </Button>
+            )}
           </>
         }
       >
@@ -304,14 +338,33 @@ export function AssignStep({
           </div>
         ) : null}
         <Field
-          label={available ? 'Search, or type a new name' : 'Name'}
+          label={available ? 'Name or friend search' : 'Name'}
           placeholder="Maya"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') addPerson()
+            if (e.key === 'Enter' && !onAddSplitwisePerson) addPerson()
           }}
         />
+        {onAddSplitwisePerson ? (
+          <>
+            <Field
+              label="Email for Splitwise"
+              type="email"
+              placeholder="maya@example.com"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              help="Splitwise uses this to find them or send an invitation."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void addByEmail()
+              }}
+            />
+            <Button variant="tertiary" onClick={() => addPerson()} disabled={!newName.trim()}>
+              Add only to this split
+            </Button>
+          </>
+        ) : null}
+        {addError ? <p className={styles.addError} role="alert">{addError}</p> : null}
       </Sheet>
     </>
   )

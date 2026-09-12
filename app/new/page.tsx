@@ -174,6 +174,22 @@ export default function NewSplitPage() {
           assignments={assignments}
           onPeople={setPeople}
           onAssignments={setAssignments}
+          onAddSplitwisePerson={
+            sw.signedIn
+              ? async ({ name, email }) => {
+                  const response = await fetch('/api/splitwise/friend', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ name, email }),
+                  })
+                  const body = await response.json().catch(() => ({}))
+                  if (!response.ok || !body.person) {
+                    throw new Error(body.message ?? 'Couldn’t add that person to Splitwise.')
+                  }
+                  return body.person
+                }
+              : undefined
+          }
           onBack={() => setStep('review')}
           onNext={() => setStep('confirm')}
         />

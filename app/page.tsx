@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
 import { splitwiseConfigured } from '@/lib/splitwise'
+import { dbConfigured, selectOwned } from '@/lib/db'
+import { ownerId } from '@/lib/session'
+import type { StoredSplit } from '@/lib/history'
+import { Dashboard } from '@/components/dashboard/Dashboard'
 import styles from './page.module.css'
 
 /* Every number below comes from the real Costco receipt in tests/fixtures —
@@ -52,6 +56,19 @@ export default async function Home({
   const signedIn = Boolean(session.accessToken)
   const authError = (await searchParams)?.auth_error
   const authErrorCode = Array.isArray(authError) ? authError[0] : authError
+
+  if (signedIn) {
+    let splits: StoredSplit[] = []
+    let unavailable = false
+    if (dbConfigured) {
+      try {
+        splits = await selectOwned<StoredSplit>('splits', ownerId(session))
+      } catch {
+        unavailable = true
+      }
+    }
+    return <Dashboard splits={splits} unavailable={unavailable} />
+  }
 
   return (
     <div className="shell">

@@ -4,6 +4,7 @@ import { getSession, ownerId } from '@/lib/session'
 import { createExpense, SplitwiseError } from '@/lib/splitwise'
 import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
 import { rateLimit } from '@/lib/ratelimit'
+import { dbConfigured, insert } from '@/lib/db'
 
 export const runtime = 'nodejs'
 
@@ -12,6 +13,7 @@ const Body = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   currency: z.string().length(3).default('USD'),
   groupId: z.number().int().min(0), // 0 = non-group expense (FR-19a)
+  groupName: z.string().min(1).max(120).default('No group'),
   payerId: z.number().int(),
   totalCents: z.number().int().positive(),
   taxCents: z.number().int().default(0),
@@ -26,6 +28,7 @@ const Body = z.object({
       people: z.array(z.number().int()),
     }),
   ),
+  people: z.array(z.object({ id: z.number().int(), name: z.string().min(1).max(120) })).min(1),
   /** Guards against a double-tap creating two expenses (FR-22). */
   idempotencyKey: z.string().uuid(),
 })
@@ -139,7 +142,41 @@ export async function POST(req: Request) {
     })
 
     recent.set(input.idempotencyKey, { id, at: Date.now() })
-    return NextResponse.json({ id })
+    let historySaved = false
+    if (dbConfigured) {
+      try {
+        await insert('splits', {
+          owner_id: ownerId(session),
+          data: {
+            merchant: input.merchant,
+            date: input.date,
+            currency: input.currency,
+            totalCents: input.totalCents,
+            taxCents: input.taxCents,
+            tipCents: input.tipCents,
+            feeCents: input.feeCents,
+            items: input.items,
+            people: input.people,
+            payerId: input.payerId,
+            groupId: input.groupId,
+            groupName: input.groupName,
+            status: 'in_splitwise',
+          },
+          expense_ids: [String(id)],
+        })
+        await insert('events', {
+          user_key: ownerId(session),
+          name: 'split_submitted',
+          props: { source: 'splitwise', group: input.groupId === 0 ? 'none' : 'group' },
+        })
+        historySaved = true
+      } catch {
+        // The Splitwise expense has already been created. Do not turn a history
+        // outage into a misleading submission failure.
+        console.error('[expense] history save failed')
+      }
+    }
+    return NextResponse.json({ id, historySaved })
   } catch (err) {
     if (err instanceof SplitwiseError && err.needsReauth) {
       return NextResponse.json(

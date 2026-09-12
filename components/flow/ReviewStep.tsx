@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { formatMoney, parseMoney } from '@/lib/money'
-import type { ExtractedReceipt } from '@/lib/receipt'
+import { splitQuantityIntoItems, type ExtractedReceipt } from '@/lib/receipt'
 import styles from './ReviewStep.module.css'
 import flow from './flow.module.css'
 
@@ -19,12 +19,14 @@ type Props = {
 const LOW_CONFIDENCE = 0.7
 
 export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Props) {
+  const [itemRevision, setItemRevision] = useState(0)
   const itemSum = useMemo(() => receipt.items.reduce((a, i) => a + i.cents, 0), [receipt.items])
 
   const subtotal = receipt.subtotalCents ?? itemSum
   const total =
     receipt.totalCents ?? subtotal + receipt.taxCents + receipt.tipCents + receipt.feeCents
   const namedItems = receipt.items.filter((item) => item.name.trim()).length
+  const quantityLines = receipt.items.filter((item) => item.qty >= 2).length
 
   function patchItem(index: number, patch: Partial<ExtractedReceipt['items'][number]>) {
     const items = receipt.items.map((item, i) => (i === index ? { ...item, ...patch } : item))
@@ -34,6 +36,22 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
   function setMoney(index: number, raw: string) {
     const parsed = parseMoney(raw)
     if (parsed.ok) patchItem(index, { cents: parsed.cents, confidence: 1 })
+  }
+
+  function splitQuantity(index: number) {
+    const item = receipt.items[index]
+    const quantity = Math.floor(item?.qty ?? 1)
+    if (!item || quantity < 2) return
+
+    const rows = splitQuantityIntoItems(item)
+    onChange({
+      ...receipt,
+      items: [...receipt.items.slice(0, index), ...rows, ...receipt.items.slice(index + 1)],
+    })
+    // Inputs use defaultValue so partially typed money remains editable. Only
+    // a quantity expansion changes one line into several, so remount exactly
+    // then to replace the old field values with the new unit values.
+    setItemRevision((revision) => revision + 1)
   }
 
   return (
@@ -61,7 +79,9 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
           </strong>
           <span>
             Tap a name or amount to edit it. Check highlighted lines especially carefully, then
-            continue when the total looks right.
+            {quantityLines > 0
+              ? ' Use “Split into” on a multi-quantity line when different people took different units.'
+              : ' continue when the total looks right.'}
           </span>
         </div>
       </div>
@@ -103,7 +123,7 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
             const low = (item.confidence ?? 1) < LOW_CONFIDENCE
             return (
               <li
-                key={i}
+                key={itemRevision + ':' + i}
                 className={[styles.item, low ? styles.low : ''].filter(Boolean).join(' ')}
               >
                 <input
@@ -126,6 +146,15 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
                     <span className={styles.flag} title="Tax code printed on the receipt">
                       Tax {item.taxFlag}
                     </span>
+                  ) : null}
+                  {item.qty > 1 ? (
+                    <button
+                      type="button"
+                      className={styles.splitQty}
+                      onClick={() => splitQuantity(i)}
+                    >
+                      Split into {Math.floor(item.qty)}
+                    </button>
                   ) : null}
                   {low ? <span className="t-caption">Check this one</span> : null}
                   <button

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { getSession } from '@/lib/session'
+import { isAdmin } from '@/lib/admin'
+import { ownerId } from '@/lib/session'
 import { splitwiseConfigured } from '@/lib/splitwise'
 import styles from './Nav.module.css'
 
@@ -22,6 +24,16 @@ export async function Nav() {
         <Link href="/new" className={[styles.link, styles.hideSmall].join(' ')}>
           New receipt
         </Link>
+        {signedIn ? (
+          <Link href="/" className={[styles.link, styles.hideSmall].join(' ')}>
+            Your splits
+          </Link>
+        ) : null}
+        {signedIn && isAdmin(ownerId(session)) ? (
+          <Link href="/admin" className={[styles.link, styles.hideSmall].join(' ')}>
+            Admin
+          </Link>
+        ) : null}
         <Link href="/faq" className={[styles.link, styles.hideSmall].join(' ')}>
           FAQ
         </Link>

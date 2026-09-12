@@ -1,0 +1,129 @@
+.page {
+  padding-block: var(--space-8) var(--space-12);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-7);
+}
+
+.head p {
+  max-width: 48rem;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.metric,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.metric {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+}
+
+.metric span,
+.metric small,
+.panelHead span {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.metric strong {
+  font-size: var(--text-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel {
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+}
+
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.panelHead h2 {
+  margin: 0;
+  font-size: var(--text-meta);
+}
+
+.table,
+.feedback {
+  padding: var(--space-4);
+}
+
+.userRow {
+  display: grid;
+  grid-template-columns: 7rem 1fr 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.userRow:last-child {
+  border-bottom: 0;
+}
+
+.userRow code,
+.userRow strong {
+  color: var(--text);
+}
+
+.feedback {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.feedback article {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.feedback article:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.feedback article div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.feedback p {
+  margin: var(--space-2) 0;
+  white-space: pre-wrap;
+}
+
+.feedback small {
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .userRow {
+    grid-template-columns: 1fr auto;
+  }
+}

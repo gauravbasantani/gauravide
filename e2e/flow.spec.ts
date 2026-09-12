@@ -103,6 +103,44 @@ test.describe('the whole split, end to end', () => {
     await expect(page.getByRole('heading', { name: /who shares what/i })).toBeVisible()
   })
 
+  test('a quantity line can become separately assignable units', async ({ page }) => {
+    await page.route('**/api/receipt/extract', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          source: 'gemini',
+          warnings: [],
+          receipt: {
+            merchant: 'Market',
+            date: '2026-09-12',
+            currency: 'USD',
+            items: [{ name: 'Tomato bag', qty: 4, cents: 1001, confidence: 1 }],
+            taxLines: [],
+            subtotalCents: 1001,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 1001,
+          },
+        }),
+      })
+    })
+
+    await page.goto('/new')
+    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.getByRole('button', { name: /read this receipt/i }).click()
+    await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
+    await page.getByRole('button', { name: 'Split into 4' }).click()
+
+    await expect(page.getByLabel('Item 1 name')).toHaveValue('Tomato bag (1 of 4)')
+    await expect(page.getByLabel('Item 4 name')).toHaveValue('Tomato bag (4 of 4)')
+    const prices = await page.locator('input[aria-label^="Price of Tomato bag"]').evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value),
+    )
+    expect(prices).toEqual(['2.51', '2.50', '2.50', '2.50'])
+  })
+
   test('a signed-in split can review and publish to Splitwise', async ({ page }) => {
     const posted: { groupId?: number; totalCents?: number; items?: unknown[] } = {}
 

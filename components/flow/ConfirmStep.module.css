@@ -108,3 +108,26 @@
   background: var(--primary-subtle);
   font-size: var(--text-meta);
 }
+
+.groupActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.createGroup {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 28rem;
+}
+
+.groupError {
+  color: var(--danger-text);
+  font-size: var(--text-caption);
+}
+
+.historyNotice {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}

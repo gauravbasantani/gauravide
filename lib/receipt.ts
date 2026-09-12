@@ -48,6 +48,28 @@ export const ExtractedReceipt = z.object({
 export type ExtractedReceipt = z.infer<typeof ExtractedReceipt>
 export type ExtractedItem = z.infer<typeof ExtractedItem>
 
+/**
+ * Turn a quantity line into individually assignable units without losing or
+ * inventing a cent. This is for cases such as four identical tomato bags
+ * bought by different people.
+ */
+export function splitQuantityIntoItems(item: ExtractedItem): ExtractedItem[] {
+  const quantity = Math.floor(item.qty)
+  if (quantity < 2) return [item]
+
+  const sign = item.cents < 0 ? -1 : 1
+  const absolute = Math.abs(item.cents)
+  const base = Math.floor(absolute / quantity)
+  const remainder = absolute % quantity
+
+  return Array.from({ length: quantity }, (_, index) => ({
+    ...item,
+    name: item.name + ' (' + (index + 1) + ' of ' + quantity + ')',
+    qty: 1,
+    cents: sign * (base + (index < remainder ? 1 : 0)),
+  }))
+}
+
 export type ExtractionSource = 'gemini' | 'ocrspace' | 'manual'
 
 export type ExtractionResult = {

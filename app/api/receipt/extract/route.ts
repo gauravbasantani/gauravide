@@ -9,6 +9,7 @@ import { extractReceipt, ExtractionUnavailable } from '@/lib/receipt'
 import { getSession, writeSession, ownerId } from '@/lib/session'
 import { rateLimit } from '@/lib/ratelimit'
 import { stripJpegMetadata } from '@/lib/exif'
+import { dbConfigured, insert } from '@/lib/db'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -102,6 +103,13 @@ export async function POST(req: Request) {
   try {
     const result = await extractReceipt(Buffer.from(clean).toString('base64'), mimeType)
     await writeSession(session)
+    if (dbConfigured) {
+      insert('events', {
+        user_key: ownerId(session),
+        name: 'receipt_extracted',
+        props: { source: result.source, kind: mimeType === 'application/pdf' ? 'pdf' : 'image' },
+      }).catch(() => console.error('[extract] event save failed'))
+    }
 
     // 5. Respond. rawText is dropped: it is receipt content, and the client
     //    already has the parsed items (SEC-7).

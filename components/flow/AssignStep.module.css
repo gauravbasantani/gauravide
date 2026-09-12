@@ -130,6 +130,12 @@
   cursor: pointer;
 }
 
+.addError {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-caption);
+}
+
 .friend:hover {
   background: var(--primary-subtle);
   border-color: var(--primary);

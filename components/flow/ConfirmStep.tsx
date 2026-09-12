@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { Field } from '@/components/ui/Field'
 import { colourOf } from './AvatarToggle'
 import { formatMoney } from '@/lib/money'
 import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import type { Person } from '@/lib/draft'
-import { rankGroups, type SwGroup, type SwPerson } from '@/lib/useSplitwise'
+import { missingFrom, rankGroups, type SwGroup, type SwPerson } from '@/lib/useSplitwise'
 import { GroupPicker } from './GroupPicker'
 import styles from './ConfirmStep.module.css'
 import flow from './flow.module.css'
@@ -41,6 +42,12 @@ export function ConfirmStep({
   const [pushing, setPushing] = useState(false)
   const [pushError, setPushError] = useState<string | null>(null)
   const [pushed, setPushed] = useState<number | null>(null)
+  const [historyNotice, setHistoryNotice] = useState(false)
+  const [availableGroups, setAvailableGroups] = useState<SwGroup[] | undefined>(groups)
+  const [groupBusy, setGroupBusy] = useState(false)
+  const [groupError, setGroupError] = useState<string | null>(null)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
   const [idemKey] = useState(() => crypto.randomUUID())
 
   // Everyone in the split must be a real Splitwise user to push.
@@ -49,15 +56,71 @@ export function ConfirmStep({
     .map((p) => ({ id: Number(p.id), name: p.name }))
   const canPush = Boolean(signedIn) && swPeople.length === people.length && people.length > 0
   const suggestedGroupId = useMemo(() => {
-    if (!groups || groups.length === 0) return 0
-    return rankGroups(groups, swPeople.map((person) => person.id))[0]?.id ?? 0
-  }, [groups, swPeople])
+    if (!availableGroups || availableGroups.length === 0) return 0
+    return rankGroups(availableGroups, swPeople.map((person) => person.id))[0]?.id ?? 0
+  }, [availableGroups, swPeople])
 
   // Make the safe, common choice available immediately. The user can still
   // pick another group or no group before submitting.
   useEffect(() => {
     if (canPush) setGroupId((current) => current ?? suggestedGroupId)
   }, [canPush, suggestedGroupId])
+
+  useEffect(() => {
+    setAvailableGroups(groups)
+  }, [groups])
+
+  const selectedGroup = availableGroups?.find((group) => group.id === groupId) ?? null
+  const missingPeople = selectedGroup ? missingFrom(selectedGroup, swPeople) : []
+  const groupIsReady = groupId === 0 || missingPeople.length === 0
+
+  async function addPeopleToSelectedGroup() {
+    if (!selectedGroup || missingPeople.length === 0) return
+    setGroupBusy(true)
+    setGroupError(null)
+    try {
+      const response = await fetch('/api/splitwise/group-members', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ groupId: selectedGroup.id, memberIds: missingPeople.map((person) => person.id) }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.message ?? 'Couldn’t update the group.')
+      setAvailableGroups((current) =>
+        current?.map((group) =>
+          group.id === selectedGroup.id
+            ? { ...group, members: [...group.members, ...missingPeople] }
+            : group,
+        ),
+      )
+    } catch (error) {
+      setGroupError(error instanceof Error ? error.message : 'Couldn’t update the group.')
+    } finally {
+      setGroupBusy(false)
+    }
+  }
+
+  async function createMatchingGroup() {
+    const name = newGroupName.trim() || receipt.merchant?.trim() || 'New split'
+    setGroupBusy(true)
+    setGroupError(null)
+    try {
+      const response = await fetch('/api/splitwise/group', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, memberIds: swPeople.map((person) => person.id) }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok || !body.group) throw new Error(body.message ?? 'Couldn’t create the group.')
+      setAvailableGroups((current) => [...(current ?? []), body.group])
+      setGroupId(body.group.id)
+      setCreatingGroup(false)
+    } catch (error) {
+      setGroupError(error instanceof Error ? error.message : 'Couldn’t create the group.')
+    } finally {
+      setGroupBusy(false)
+    }
+  }
 
   const total =
     receipt.totalCents ??
@@ -110,6 +173,7 @@ export function ConfirmStep({
     if (groupId === null || !payer) return
     setPushing(true)
     setPushError(null)
+    setHistoryNotice(false)
     try {
       const res = await fetch('/api/splitwise/expense', {
         method: 'POST',
@@ -119,6 +183,10 @@ export function ConfirmStep({
           date: receipt.date,
           currency: receipt.currency,
           groupId,
+          groupName:
+            groupId === 0
+              ? 'No group'
+              : availableGroups?.find((group) => group.id === groupId)?.name ?? 'Splitwise group',
           payerId: Number(payer),
           totalCents: total,
           taxCents: receipt.taxCents,
@@ -131,6 +199,7 @@ export function ConfirmStep({
             ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
             people: (assignments[String(i)] ?? []).map(Number),
           })),
+          people: swPeople,
           idempotencyKey: idemKey, // a double-tap creates one expense (FR-22)
         }),
       })
@@ -140,6 +209,10 @@ export function ConfirmStep({
         return
       }
       setPushed(body.id)
+      // A Splitwise success remains a success even if a separate dashboard
+      // write failed. Say so clearly, but never make the user retry and risk
+      // creating a duplicate expense.
+      setHistoryNotice(body.historySaved === false)
     } catch {
       setPushError('Couldn’t reach Splitwise.')
     } finally {
@@ -263,17 +336,64 @@ export function ConfirmStep({
         </div>
       </div>
 
-      {canPush && groups ? (
+      {canPush && availableGroups ? (
         <div className={styles.summary}>
           <strong>Add to</strong>
           <div style={{ marginTop: 'var(--space-3)' }}>
             <GroupPicker
-              groups={groups}
+              groups={availableGroups}
               people={swPeople}
               selectedId={groupId}
-              onSelect={setGroupId}
+              onSelect={(id) => {
+                setGroupId(id)
+                setGroupError(null)
+                setCreatingGroup(false)
+              }}
             />
           </div>
+        </div>
+      ) : null}
+
+      {canPush && selectedGroup && missingPeople.length > 0 ? (
+        <div className={styles.blocked} role="status">
+          <strong>
+            {missingPeople.map((person) => person.name).join(', ')} {missingPeople.length === 1 ? 'is' : 'are'} not in {selectedGroup.name}.
+          </strong>
+          <span>
+            Choose what should happen before the expense is created. Gauravide will never add
+            someone to a Splitwise group without an explicit action.
+          </span>
+          <div className={styles.groupActions}>
+            <Button onClick={() => void addPeopleToSelectedGroup()} loading={groupBusy}>
+              Add {missingPeople.length === 1 ? missingPeople[0]?.name : 'everyone'} to {selectedGroup.name}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setCreatingGroup(true)
+                setNewGroupName(receipt.merchant?.trim() || selectedGroup.name + ' split')
+              }}
+            >
+              Create a new group
+            </Button>
+            <Button variant="tertiary" onClick={() => setGroupId(0)}>
+              Use no group instead
+            </Button>
+          </div>
+          {creatingGroup ? (
+            <div className={styles.createGroup}>
+              <Field
+                label="New group name"
+                value={newGroupName}
+                onChange={(event) => setNewGroupName(event.target.value)}
+                placeholder="Dinner crew"
+              />
+              <Button onClick={() => void createMatchingGroup()} loading={groupBusy}>
+                Create group with everyone
+              </Button>
+            </div>
+          ) : null}
+          {groupError ? <span className={styles.groupError}>{groupError}</span> : null}
         </div>
       ) : null}
 
@@ -296,6 +416,11 @@ export function ConfirmStep({
               Open it in Splitwise
             </a>
           </p>
+          {historyNotice ? (
+            <p className={styles.historyNotice}>
+              It was added to Splitwise, but we could not save a copy in Your splits this time.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -309,10 +434,12 @@ export function ConfirmStep({
               full
               loading={pushing}
               onClick={push}
-              disabled={!reconciles || groupId === null}
+              disabled={!reconciles || groupId === null || !groupIsReady}
               disabledReason={
                 !reconciles
                   ? 'The shares don’t add up to the total — go back and check'
+                  : !groupIsReady
+                    ? 'Choose how to handle the people missing from this group'
                   : groupId === null
                     ? 'Choose where this expense should go'
                     : undefined

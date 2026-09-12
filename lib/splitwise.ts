@@ -108,6 +108,69 @@ export const getGroups = (token: string) =>
 export const getFriends = (token: string) =>
   call<{ friends: SplitwiseUser[] }>(token, 'get_friends').then((r) => r.friends)
 
+function splitName(name: string): { first: string; last: string } {
+  const [first = 'Someone', ...rest] = name.trim().split(/\s+/)
+  return { first, last: rest.join(' ') }
+}
+
+/** Add a real Splitwise friend, or invite them if the email is new. */
+export async function createFriend(
+  token: string,
+  input: { name: string; email: string },
+): Promise<SplitwiseUser> {
+  const { first, last } = splitName(input.name)
+  const body = await call<{ friend?: SplitwiseUser }>(token, 'create_friend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      user_email: input.email,
+      user_first_name: first,
+      user_last_name: last,
+    }),
+  })
+  if (!body.friend) throw new SplitwiseError(502, 'create_friend returned no friend')
+  return body.friend
+}
+
+export async function createGroup(
+  token: string,
+  input: { name: string; memberIds: number[] },
+): Promise<SplitwiseGroup> {
+  const form = new URLSearchParams({ name: input.name, group_type: 'other' })
+  input.memberIds.forEach((id, index) => form.set('users__' + index + '__user_id', String(id)))
+  const body = await call<{ group?: SplitwiseGroup }>(token, 'create_group', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: form,
+  })
+  if (!body.group) throw new SplitwiseError(502, 'create_group returned no group')
+  return body.group
+}
+
+/** Adds people one by one so a partial failure can be reported honestly. */
+export async function addUsersToGroup(
+  token: string,
+  groupId: number,
+  memberIds: number[],
+): Promise<void> {
+  for (const userId of memberIds) {
+    const body = await call<{ success?: boolean }>(token, 'add_user_to_group', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ group_id: String(groupId), user_id: String(userId) }),
+    })
+    if (!body.success) throw new SplitwiseError(502, 'add_user_to_group was not accepted')
+  }
+}
+
+/** Deletes an expense for every person who can see it in Splitwise. */
+export async function deleteExpense(token: string, expenseId: number): Promise<void> {
+  const body = await call<{ success?: boolean }>(token, 'delete_expense/' + expenseId, {
+    method: 'POST',
+  })
+  if (!body.success) throw new SplitwiseError(502, 'delete_expense was not accepted')
+}
+
 export type ExpenseShare = { userId: number; paidCents: number; owedCents: number }
 
 /**
