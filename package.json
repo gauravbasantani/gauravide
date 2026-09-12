@@ -7,6 +7,7 @@
     "build": "next build",
     "check:contrast": "node scripts/check-contrast.mjs",
     "clean": "rm -rf .next",
+    "db:migrate": "node scripts/migrate.mjs",
     "dev": "next dev",
     "e2e": "npm run clean && npm run build && playwright test",
     "e2e:only": "playwright test",
