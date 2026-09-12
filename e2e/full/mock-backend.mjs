@@ -247,6 +247,27 @@ async function splitwise(req, res, url) {
     })
     return send(res, 200, { expenses: [{ id }], errors: {} })
   }
+  if (route.startsWith('get_expense/')) {
+    const expense = state.expenses.get(Number(route.split('/')[1]))
+    if (!expense) return send(res, 404, { errors: { base: ['Expense not found'] } })
+    return send(res, 200, {
+      expense: {
+        id: expense.id,
+        cost: expense.cost,
+        description: expense.description,
+        date: expense.date,
+        group_id: expense.group_id,
+        currency_code: expense.currency_code,
+        updated_at: new Date().toISOString(),
+        deleted_at: expense.deleted ? new Date().toISOString() : null,
+        users: expense.users.map((u) => ({
+          user_id: u.user_id,
+          paid_share: u.paid_share,
+          owed_share: u.owed_share,
+        })),
+      },
+    })
+  }
   if (route.startsWith('delete_expense/')) {
     const expense = state.expenses.get(Number(route.split('/')[1]))
     if (!expense || expense.deleted) return send(res, 200, { success: false, errors: { base: ['Expense not found'] } })
@@ -266,6 +287,15 @@ http
       if (url.pathname === '/__reset') {
         reset()
         return send(res, 200, { ok: true })
+      }
+      // Change an expense the way another Splitwise client would, so sync has
+      // something real to find.
+      if (url.pathname === '/__edit-expense' && req.method === 'POST') {
+        const body = JSON.parse((await readBody(req)).toString() || '{}')
+        const expense = state.expenses.get(Number(body.id))
+        if (!expense) return send(res, 404, { message: 'no expense' })
+        Object.assign(expense, body.patch ?? {})
+        return send(res, 200, expense)
       }
       if (url.pathname === '/__state') {
         return send(res, 200, {

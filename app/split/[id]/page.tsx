@@ -14,6 +14,7 @@ import { netBalances, suggestTransfers } from '@/lib/split'
 import { colourOf, initialsOf } from '@/lib/avatar'
 import { EditSplitButton } from './EditSplitButton'
 import { SplitActions } from './SplitActions'
+import { SyncPanel } from './SyncPanel'
 import styles from './split.module.css'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -96,6 +97,18 @@ export default async function SplitDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* ── Summary ─────────────────────────────────────────────── */}
+      {data.deletedInSplitwise ? (
+        <p className={styles.flag} role="status">
+          This expense was deleted in Splitwise. What you see here is your own saved copy.
+        </p>
+      ) : null}
+      {data.itemsStale ? (
+        <p className={styles.flag} role="status">
+          The amounts came from Splitwise after someone changed them there, so the item breakdown
+          below may not add up to the total any more.
+        </p>
+      ) : null}
+
       <section className={styles.hero}>
         <span className={styles.tile} style={{ background: colourOf(split.id) }} aria-hidden="true">
           {merchant.charAt(0).toUpperCase()}
@@ -268,6 +281,12 @@ export default async function SplitDetailPage({ params }: { params: Promise<{ id
           </div>
         </section>
       ) : null}
+
+      <SyncPanel
+        splitId={split.id}
+        syncedAt={data.syncedAt ?? null}
+        deletedInSplitwise={data.deletedInSplitwise ?? false}
+      />
 
       <SplitActions
         splitId={split.id}

@@ -80,6 +80,12 @@ export function ConfirmStep({
   const [groupError, setGroupError] = useState<string | null>(null)
   const [pickingPayer, setPickingPayer] = useState(false)
   const [payerSearch, setPayerSearch] = useState('')
+  const [quota, setQuota] = useState<{
+    lastHour: number
+    last24h: number
+    hourlyLimit: number
+    remainingThisHour: number
+  } | null>(null)
 
   const total = receiptTotal(receipt)
   const currency = receipt.currency
@@ -159,6 +165,22 @@ export function ConfirmStep({
   useEffect(() => {
     setAvailableGroups(groups)
   }, [groups])
+
+  // How many expenses this account has sent lately (FR-47). Splitwise publishes
+  // no limit of its own, so the only number worth showing is ours.
+  useEffect(() => {
+    if (!signedIn || submittedExpenseId) return
+    let cancelled = false
+    fetch('/api/quota')
+      .then((r) => r.json())
+      .then((body) => {
+        if (!cancelled && body?.counted) setQuota(body)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn, submittedExpenseId])
 
   const selectedGroup = availableGroups?.find((group) => group.id === groupId) ?? null
   const missingPeople = selectedGroup ? missingFrom(selectedGroup, swPeople) : []
@@ -750,6 +772,16 @@ export function ConfirmStep({
         </div>
       ) : null}
 
+      {canPush && quota ? (
+        <p className={styles.quota} data-quota>
+          {quota.lastHour === 0
+            ? `No expenses sent in the last hour. This app allows ${quota.hourlyLimit} an hour.`
+            : `${quota.lastHour} of ${quota.hourlyLimit} sent this hour · ${quota.last24h} in the last 24 hours.`}{' '}
+          Splitwise doesn’t publish a limit of its own; if it throttles, you’ll be told and nothing
+          is lost.
+        </p>
+      ) : null}
+
       <div className={flow.cta}>
         <div className={flow.ctaInner}>
           <Button variant="secondary" onClick={onBack}>
@@ -760,14 +792,16 @@ export function ConfirmStep({
               full
               loading={pushing}
               onClick={push}
-              disabled={!plan.ok || groupId === null || !groupIsReady}
+              disabled={!plan.ok || groupId === null || !groupIsReady || quota?.remainingThisHour === 0}
               disabledReason={
                 problem ??
-                (!groupIsReady
+                (quota?.remainingThisHour === 0
+                  ? `You’ve sent ${quota.hourlyLimit} expenses this hour — this app’s limit. Try again shortly; your split is saved.`
+                  : !groupIsReady
                   ? 'Choose how to handle the people missing from this group'
-                  : groupId === null
-                    ? 'Choose where this expense should go'
-                    : undefined)
+                    : groupId === null
+                      ? 'Choose where this expense should go'
+                      : undefined)
               }
             >
               {editing ? 'Save changes to Splitwise' : 'Add to Splitwise'}

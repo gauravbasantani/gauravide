@@ -294,6 +294,14 @@ export async function POST(req: Request) {
         'You’ve been signed out of Splitwise. Sign in again — your split is still here.',
       )
     }
+    if (err instanceof SplitwiseError && err.rateLimited) {
+      // Splitwise publishes no numbers; all we can do is say so honestly.
+      return fail(
+        429,
+        'splitwise_rate_limited',
+        'Splitwise is limiting how fast expenses can be added right now. Wait a minute and press again — your split is still here, and nothing was created.',
+      )
+    }
     if (err instanceof SplitwiseError && err.refusal) {
       return fail(422, 'splitwise_refused', `Splitwise didn’t accept it: ${err.refusal}`)
     }

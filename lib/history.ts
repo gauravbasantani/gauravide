@@ -40,6 +40,11 @@ export type StoredSplitData = {
   included?: number[] | null
   weights?: Record<string, number>
   exact?: Record<string, number>
+  /** Set by syncing with Splitwise (FR-48). */
+  syncedAt?: string
+  deletedInSplitwise?: boolean
+  /** Amounts came from Splitwise, so the item breakdown may no longer match. */
+  itemsStale?: boolean
 }
 
 export type StoredSplit = {

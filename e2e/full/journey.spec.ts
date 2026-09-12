@@ -542,3 +542,69 @@ test('each step starts at the top, and a lone discount is refused', async ({ pag
   await page.getByRole('button', { name: 'Gaurav Basantani, sharing Coupon' }).click()
   await expect(next).toBeEnabled()
 })
+
+test('a change made in Splitwise can be found, pulled, or overwritten', async ({ page }) => {
+  const problems = watchForBreakage(page)
+
+  // Send a split, then change it "in Splitwise" the way another client would.
+  await page.goto('/new')
+  await page.getByRole('button', { name: 'Type it in' }).click()
+  await page.getByLabel(/item 1 name/i).fill('Groceries')
+  await page.getByLabel(/price of/i).fill('40.00')
+  await page.getByLabel('Merchant').fill('Groceries')
+  await page.getByLabel('Merchant').blur()
+  await page.getByRole('button', { name: /looks right/i }).click()
+  await page.getByRole('button', { name: /add person/i }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Mayur Sabankar' }).click()
+  await page.getByRole('button', { name: /everyone shares everything/i }).click()
+  await page.getByRole('button', { name: /next: who paid/i }).click()
+  await expect(page.locator('[data-quota]')).toContainText(/sent this hour|no expenses sent/i)
+  await page.getByRole('button', { name: /^add to splitwise$/i }).click()
+  await expect(page.getByRole('heading', { name: 'Added to Splitwise' })).toBeVisible()
+  await page.getByRole('button', { name: /^done$/i }).click()
+
+  const before = await backend()
+  const expense = before.expenses[0]!
+  await fetch(`${MOCK}/__edit-expense`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      id: expense.id,
+      patch: {
+        cost: '50.00',
+        users: [
+          { user_id: 101, paid_share: '50.00', owed_share: '30.00' },
+          { user_id: 202, paid_share: '0.00', owed_share: '20.00' },
+        ],
+      },
+    }),
+  })
+
+  await page.getByRole('link', { name: /groceries/i }).click()
+  await page.getByRole('button', { name: /check splitwise/i }).click()
+  await expect(page.getByText('Splitwise has a different version')).toBeVisible()
+  await expect(page.getByRole('cell', { name: '$40.00' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: '$50.00' })).toBeVisible()
+
+  // Take their version: totals update, and the item list is flagged.
+  await page.getByRole('button', { name: /use splitwise’s version/i }).click()
+  await expect(page.getByText(/updated from splitwise/i)).toBeVisible()
+  await expect(page.getByText('$50.00').first()).toBeVisible()
+  await expect(page.getByText(/item breakdown below may not add up/i)).toBeVisible()
+
+  // Push ours back: Splitwise ends up matching this page, still one expense.
+  await page.getByRole('button', { name: /check splitwise/i }).click()
+  await expect(page.getByText(/splitwise matches this page/i)).toBeVisible()
+
+  // And a deletion over there is recognised rather than silently ignored.
+  await fetch(`${MOCK}/api/v3.0/delete_expense/${expense.id}`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-token' },
+  })
+  await page.getByRole('button', { name: /check splitwise/i }).click()
+  await expect(page.getByText(/no longer exists in splitwise/i)).toBeVisible()
+
+  const after = await backend()
+  expect(after.expenses).toHaveLength(1)
+  expect(problems).toEqual([])
+})

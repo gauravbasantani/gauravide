@@ -464,3 +464,109 @@
 .actions {
   animation-delay: 100ms;
 }
+
+/* ── Splitwise copy (sync) ─────────────────────────────────── */
+.sync {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  margin-top: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.syncHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.syncHead h2 {
+  margin: 0;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.syncHead p {
+  max-width: 42rem;
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.syncOk {
+  margin: 0;
+  color: var(--success-text);
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.syncWarn {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  font-size: var(--text-meta);
+}
+
+.syncWarn strong {
+  color: var(--warning-text);
+}
+
+.syncDiff {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  font-size: var(--text-meta);
+}
+
+.syncTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-caption);
+}
+
+.syncTable th,
+.syncTable td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.syncTable th {
+  color: var(--text-muted);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.syncNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.syncActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.flag {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+  font-size: var(--text-meta);
+  font-weight: 500;
+}

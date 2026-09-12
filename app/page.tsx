@@ -23,10 +23,18 @@ const PEOPLE = [
 ]
 
 const STEPS = [
-  { n: '1', title: 'Snap', body: 'Photograph the receipt, or upload an image or PDF.' },
+  {
+    n: '1',
+    title: 'Add the receipt',
+    body: 'Photograph it, upload a photo or PDF from Walmart, Safeway or anywhere else, or just type the items in.',
+  },
   { n: '2', title: 'Check', body: 'Every line read back and editable. Unclear ones are flagged.' },
   { n: '3', title: 'Split', body: 'Tap who had what — or split equally, by shares, or exact.' },
-  { n: '4', title: 'Send', body: 'Pick who paid. One tap adds it to Splitwise, to the cent.' },
+  {
+    n: '4',
+    title: 'Connect and send',
+    body: 'Sign in to Splitwise, pick who paid, and one tap adds the expense — to the cent.',
+  },
 ]
 
 const CASES = [
@@ -63,9 +71,13 @@ const CASES = [
 ]
 
 const TRUST = [
+  {
+    title: 'Free, no Pro needed',
+    body: 'You need a normal free Splitwise account. The Pro subscription their API requires is the developer’s problem, not yours.',
+  },
   { title: 'Always adds up', body: 'Whole cents only. If it doesn’t match the receipt, it isn’t sent.' },
   { title: 'Location stripped', body: 'Photo GPS is removed before upload — nobody learns where you shop.' },
-  { title: 'Private history', body: 'Your saved splits are visible to your Splitwise account only.' },
+  { title: 'Private history', body: 'Your saved splits and receipt photos are visible to your Splitwise account only.' },
 ]
 
 export default async function Home({
@@ -109,8 +121,9 @@ export default async function Home({
         </h1>
 
         <p className={[styles.tagline, 'rise', 'rise-2'].join(' ')}>
-          Snap the bill, tap who had what, pick who paid. Gauravide adds an exact, itemised expense
-          to Splitwise — tax and all.
+          No spreadsheet, no calculator. Add a photo or PDF of any receipt — Walmart, Safeway,
+          a restaurant bill — or type it in. Tap who had what, and it lands in Splitwise as an
+          exact, itemised expense, tax and all.
         </p>
 
         <div className={[styles.actions, 'rise', 'rise-3'].join(' ')}>
@@ -143,9 +156,11 @@ export default async function Home({
         ) : null}
 
         <p className={styles.meta}>
-          <span>Free</span>
+          <span>Free — no Splitwise Pro needed</span>
           <span aria-hidden="true">·</span>
           <span>No app to install</span>
+          <span aria-hidden="true">·</span>
+          <span>No spreadsheet</span>
           <span aria-hidden="true">·</span>
           <span>Your password never leaves Splitwise</span>
         </p>

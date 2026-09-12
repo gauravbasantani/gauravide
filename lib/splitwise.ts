@@ -47,6 +47,14 @@ export class SplitwiseError extends Error {
   get refusal(): string | null {
     return this.status === 422 ? this.message : null
   }
+  /**
+   * Splitwise throttled us. They publish no numbers ("rate limits vary by
+   * endpoint … and are subject to change"), so the only honest response is to
+   * say so and let the user try again.
+   */
+  get rateLimited(): boolean {
+    return this.status === 429
+  }
 }
 
 /**
@@ -187,6 +195,22 @@ export async function addUsersToGroup(
     }
   }
 }
+
+export type SplitwiseExpense = {
+  id: number
+  cost: string
+  description: string | null
+  date: string | null
+  group_id: number | null
+  currency_code: string | null
+  updated_at: string | null
+  deleted_at: string | null
+  users: { user_id?: number; user?: { id: number }; paid_share: string; owed_share: string }[]
+}
+
+/** One expense as Splitwise has it now — the source of truth for syncing (FR-48). */
+export const getExpense = (token: string, expenseId: number) =>
+  call<{ expense: SplitwiseExpense }>(token, 'get_expense/' + expenseId).then((r) => r.expense)
 
 /** Deletes an expense for every person who can see it in Splitwise. */
 export async function deleteExpense(token: string, expenseId: number): Promise<void> {

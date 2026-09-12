@@ -1490,3 +1490,29 @@ we updated — requirements, userflow, and the web app wherever needed."*
   per account and deleted with the split, Gemini as the only place contents leave the app,
   aggregate-only admin metrics under a keyed pseudonym, editing and deleting splits, and the
   camera.
+
+### Limits, syncing, security page, footer (added 2026-09-12, seventh pass)
+
+*Gaurav: "how many transactions can I add — Splitwise has a limit? … in Splitwise I may update the
+transaction; here also a button in the dashboard receipt to fetch or push … check secured or not,
+mention it on the website, and put my contact in the footer."*
+
+- **FR-47** **Show the real limit, not a guess.** Splitwise documents no numbers ("rate limits
+  vary by endpoint … subject to change", HTTP 429, "fairly lenient"), so the app states its own:
+  30 sends per hour per account, with "N of 30 sent this hour · M in the last 24 hours" on the
+  send screen (`GET /api/quota`, counted from our own events). At the cap, sending is disabled
+  with the reason and the time it frees up. A 429 from Splitwise says plainly that Splitwise is
+  throttling, that nothing was created, and that the split is safe.
+- **FR-48** **Two copies, one button.** A saved split and its Splitwise expense can each change.
+  "Check Splitwise" compares them and shows a field-by-field table (total, name, date, group,
+  who paid, who owes). Then the user chooses: **pull** (take Splitwise's amounts — items stay
+  ours and are flagged `itemsStale` if they no longer add up) or **push** (send ours over theirs,
+  which changes it for everyone). Deleted there is detected and flagged, never silently ignored.
+  Nothing syncs automatically. Comparison logic is pure and unit-tested (`lib/sync.ts`).
+- **SEC-31** **/security** states plainly what is stored, who can see it, and how it is protected,
+  and **/.well-known/security.txt** (RFC 9116) gives a private reporting address.
+- **VIS-11** The footer carries the brand, what the app is, four columns (the app · trust ·
+  contact), a real email address, and the "not affiliated with Splitwise" line.
+- **COPY-3** The home page leads with the actual job: no spreadsheet, add a photo or PDF from
+  Walmart, Safeway or anywhere, or type it in, connect Splitwise, done — and says "free, no
+  Splitwise Pro needed" where people look for the catch.

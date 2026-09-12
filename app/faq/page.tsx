@@ -101,6 +101,49 @@ const QA: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
+    q: 'How many receipts can I add? Is there a daily limit?',
+    a: (
+      <>
+        <p>
+          Splitwise doesn&rsquo;t publish a number. Their documentation says rate limits vary by
+          endpoint, can change without notice, and are &ldquo;fairly lenient&rdquo;. If they ever
+          do throttle a request, Gauravide tells you plainly, creates nothing, and keeps your split
+          so you can press again in a minute.
+        </p>
+        <p>
+          This app has its own limit — <strong>30 expenses an hour per account</strong> — to protect
+          the shared free quotas. The send screen shows how many you&rsquo;ve sent this hour and in
+          the last 24 hours, so you always know where you stand.
+        </p>
+      </>
+    ),
+  },
+  {
+    q: 'If someone changes the expense in Splitwise, does this update?',
+    a: (
+      <p>
+        Not by itself, on purpose. Open the split and press <strong>Check Splitwise</strong>: it
+        compares the two copies and shows exactly what differs — total, name, date, group, who paid,
+        who owes. Then you choose: take Splitwise&rsquo;s version, or push yours over theirs (which
+        changes it for everyone in it). If it was deleted there, the page says so. Splitwise has no
+        idea about items, so pulling updates the amounts and flags the item breakdown if it no
+        longer adds up.
+      </p>
+    ),
+  },
+  {
+    q: 'Is it secure?',
+    a: (
+      <p>
+        Your Splitwise password never touches this app, the access token lives in an encrypted
+        server-only cookie, every read and write is checked against your account, receipt photos
+        sit in private storage with no public links, and uploads and input are validated on the
+        server. The full account is on the <a href="/security">Security &amp; privacy</a> page,
+        including how to report a problem.
+      </p>
+    ),
+  },
+  {
     q: 'Can I connect my Walmart or Amazon account?',
     a: (
       <p>

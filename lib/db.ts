@@ -36,6 +36,19 @@ export async function insert(table: string, row: Json): Promise<void> {
   if (!res.ok) throw new DbError(`insert ${table} ${res.status}`)
 }
 
+/** Rows matching arbitrary PostgREST filters, e.g. `{ 'created_at': 'gte.2026-09-01' }`. */
+export async function selectWhere<T>(
+  table: string,
+  filters: Record<string, string>,
+  columns = '*',
+  limit = 1000,
+): Promise<T[]> {
+  const params = new URLSearchParams({ select: columns, limit: String(limit), ...filters })
+  const res = await request(`${table}?${params}`, { method: 'GET' })
+  if (!res.ok) throw new DbError(`select where ${table} ${res.status}`)
+  return (await res.json()) as T[]
+}
+
 /** Insert one row and return it — for the generated id. */
 export async function insertReturning<T>(table: string, row: Json): Promise<T> {
   const res = await request(table, {

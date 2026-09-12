@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { netBalances, planSplit, suggestTransfers, type Item } from '@/lib/split'
 import { sum } from '@/lib/money'
 import { draftFromSplit, type StoredSplit } from '@/lib/history'
+import { applyRemote, differences, readRemote } from '@/lib/sync'
 import { buildPlan, effectiveAssignments, payersFor } from '@/components/flow/plan'
 import {
   cleanItemName,
@@ -563,5 +564,100 @@ describe('splits that would be wrong or refused (FR-43)', () => {
       }),
     )
     expect(plan.owed).toEqual({ a: 500, b: 500 })
+  })
+})
+
+describe('keeping our copy and Splitwise in step (FR-48)', () => {
+  const stored = {
+    merchant: 'Costco',
+    date: '2026-09-12',
+    currency: 'USD',
+    totalCents: 4000,
+    taxCents: 0,
+    tipCents: 0,
+    feeCents: 0,
+    items: [{ name: 'Wine', cents: 4000, people: [101, 202] }],
+    people: [
+      { id: 101, name: 'Gaurav' },
+      { id: 202, name: 'Mayur' },
+    ],
+    payerId: 101,
+    groupId: 9,
+    groupName: 'Apartment',
+    status: 'in_splitwise' as const,
+    owed: { '101': 2000, '202': 2000 },
+    paid: { '101': 4000 },
+  }
+  const remoteExpense = {
+    id: 5,
+    cost: '40.00',
+    description: 'Costco',
+    date: '2026-09-12T00:00:00Z',
+    group_id: 9,
+    currency_code: 'USD',
+    updated_at: '2026-09-12T10:00:00Z',
+    deleted_at: null,
+    users: [
+      { user_id: 101, paid_share: '40.00', owed_share: '20.00' },
+      { user_id: 202, paid_share: '0.00', owed_share: '20.00' },
+    ],
+  }
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
+
+  it('reads Splitwise’s copy into cents and a plain date', () => {
+    const remote = readRemote(remoteExpense)
+    expect(remote).toMatchObject({
+      totalCents: 4000,
+      description: 'Costco',
+      date: '2026-09-12',
+      groupId: 9,
+      deleted: false,
+      paid: { '101': 4000, '202': 0 },
+      owed: { '101': 2000, '202': 2000 },
+    })
+  })
+
+  it('finds nothing when they agree', () => {
+    expect(differences(stored, readRemote(remoteExpense), money)).toEqual([])
+  })
+
+  it('names what changed when someone edits it in Splitwise', () => {
+    const edited = readRemote({
+      ...remoteExpense,
+      cost: '50.00',
+      description: 'Costco run',
+      users: [
+        { user_id: 101, paid_share: '50.00', owed_share: '30.00' },
+        { user_id: 202, paid_share: '0.00', owed_share: '20.00' },
+      ],
+    })
+    const diffs = differences(stored, edited, money)
+    // The payer's paid_share moved with the total, so that is a change too.
+    expect(diffs.map((d) => d.label)).toEqual(['Total', 'Name', 'Who owes what', 'Who paid'])
+    expect(diffs[0]).toMatchObject({ ours: '$40.00', theirs: '$50.00' })
+  })
+
+  it('pulling takes their amounts and flags the item breakdown', () => {
+    const edited = readRemote({
+      ...remoteExpense,
+      cost: '50.00',
+      users: [
+        { user_id: 101, paid_share: '50.00', owed_share: '30.00' },
+        { user_id: 202, paid_share: '0.00', owed_share: '20.00' },
+      ],
+    })
+    const next = applyRemote(stored, edited)
+    expect(next).toMatchObject({
+      totalCents: 5000,
+      owed: { '101': 3000, '202': 2000 },
+      paid: { '101': 5000, '202': 0 },
+      itemsStale: true,
+    })
+    // The items themselves are never invented or rewritten.
+    expect(next.items).toEqual(stored.items)
+  })
+
+  it('a deleted expense is recognised', () => {
+    expect(readRemote({ ...remoteExpense, deleted_at: '2026-09-12T11:00:00Z' }).deleted).toBe(true)
   })
 })
