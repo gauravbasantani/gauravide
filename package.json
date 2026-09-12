@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run lint && npm run check:contrast && npm run test",
     "verify:all": "npm run verify && npm run build && npm run e2e:only && npm run e2e:full",
-    "e2e:full": "playwright test -c playwright.full.config.ts"
+    "e2e:full": "playwright test -c playwright.full.config.ts",
+    "admin:password": "node scripts/admin-password.mjs"
   },
   "dependencies": {
     "next": "15.1.11",

@@ -61,6 +61,11 @@
   --person-8: #86198f;
   --person-on: #ffffff;
 
+  /* ── Chart series — validated with the dataviz palette checker
+     (lightness band, chroma, colour-blind separation, contrast). ── */
+  --chart-1: #4f46e5;
+  --chart-2: #be185d;
+
   /* ── Space (4px base) ──────────────────────────────────── */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -169,6 +174,10 @@
     --person-7: #6ee7b7;
     --person-8: #f0abfc;
     --person-on: #0b1120;
+
+    /* Its own validated pair on the dark surface, not a flip of the light one. */
+    --chart-1: #6366f1;
+    --chart-2: #db2777;
 
     --shadow-sm: none;
     --shadow-md: none;

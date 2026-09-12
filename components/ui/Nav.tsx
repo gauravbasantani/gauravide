@@ -1,20 +1,27 @@
 import Link from 'next/link'
-import { BrandMark } from './BrandMark'
+import Image from 'next/image'
 import { getSession } from '@/lib/session'
-import { isAdmin } from '@/lib/admin'
-import { ownerId } from '@/lib/session'
+import { isAdminRequest } from '@/lib/adminAuth'
 import { splitwiseConfigured } from '@/lib/splitwise'
 import styles from './Nav.module.css'
 
 export async function Nav() {
   const session = await getSession()
   const signedIn = Boolean(session.accessToken)
+  const showAdmin = await isAdminRequest()
 
   return (
     <header className={styles.nav}>
       <nav className={styles.inner} aria-label="Main">
         <Link href="/" className={styles.brand}>
-          <BrandMark className={styles.mark} />
+          <Image
+            className={styles.mark}
+            src="/gauravide-mark.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+          />
           <span className={styles.wordmark}>
             Gaurav<span className={styles.wordmarkAccent}>ide</span>
           </span>
@@ -30,7 +37,7 @@ export async function Nav() {
             Your splits
           </Link>
         ) : null}
-        {signedIn && isAdmin(ownerId(session)) ? (
+        {showAdmin ? (
           <Link href="/admin" className={[styles.link, styles.hideSmall].join(' ')}>
             Admin
           </Link>

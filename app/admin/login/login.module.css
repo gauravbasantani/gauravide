@@ -1,0 +1,102 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - 12rem);
+  padding-block: var(--space-10);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-4);
+  width: min(100%, 26rem);
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background:
+    radial-gradient(22rem 10rem at 50% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 70%),
+    var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.lock {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--primary-subtle);
+  font-size: 22px;
+}
+
+.title {
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-meta);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.passwordWrap {
+  position: relative;
+}
+
+.reveal {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  min-width: 56px;
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reveal:hover {
+  background: var(--primary-subtle);
+}
+
+.error {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+  font-size: var(--text-meta);
+}
+
+.notice {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+  font-size: var(--text-meta);
+}
+
+.alt {
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+.alt a {
+  color: var(--primary);
+  font-weight: 600;
+}

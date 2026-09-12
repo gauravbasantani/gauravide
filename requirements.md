@@ -793,6 +793,34 @@ bought.**
   feedback inbox (messages people chose to send, with an optional reply address) is shown
   deliberately and labelled as such.
 
+### Admin dashboard (added 2026-09-12)
+
+*Gauravide's goal from Gauravide's developer: "how many people used it, how many receipts,
+how much amount … how good metrics data I can get, and I will feel good that I saved their
+time with this application."*
+
+- **MET-19** Every sent split records non-identifying counts: `itemCount`, `peopleCount`,
+  `payerCount` and the Splitwise ids of participants (in the split row), and `items`/`people`
+  counts in the `split_submitted` event. Failed reads record a `receipt_failed` event (reason
+  type only).
+- **MET-20** The dashboard (range: 7 days · 30 days · all time) shows:
+  | Section | Numbers |
+  |---|---|
+  | Impact | Time saved (estimate, formula shown), splits sent, people involved, minutes per receipt |
+  | Headline | People who used it (signed-in + signed-out browsers), receipts scanned + % that reached Splitwise, splits sent + edits, money split per currency (+ average receipt) |
+  | More | New accounts, active in 7 days, came back (2+ splits), people in their splits, items split |
+  | Activity | Daily receipts scanned vs sent, last 7/30 days, hover values, table view |
+  | Habits | Split mode mix; % several payers, in a group, uneven item splits, photo kept |
+  | Reader | Read automatically / backup reader / couldn't read |
+  | How often | Active this week / month, come back each week (weekly ÷ monthly active), splits per person, typical gap between one person's splits (median), time saved per person, accounts by 1 / 2–3 / 4–9 / 10+ splits |
+  | Time saved each week | Minutes saved per week for the last 8 weeks, hover values, table view |
+  | Accounts | Keyed pseudonym, first/last seen, receipts, splits — counts and dates only |
+- **MET-21** **Time saved model** (conservative, shown on the page): by hand ≈ 2 min + 15 s per
+  item + 45 s per person; in Gauravide ≈ 1 min; minimum 30 s per receipt. Splits sent before
+  counts were recorded assume 6 items and 2 people, and the page says how many did.
+- **MET-22** All numbers come from `computeMetrics()` in `lib/metrics.ts`, a pure function with
+  unit tests; money is never summed across currencies.
+
 ### Metrics worth having
 
 **Adoption**
@@ -825,6 +853,14 @@ This is the set that answers your real question. Counting users tells you nothin
 
 - **SEC-26** Admin access is an explicit allowlist of Splitwise user ids in a server-side env
   var. Not a role column a bug could flip, not a query param.
+- **SEC-26a** *(2026-09-12, requested by Gaurav: "admin should have a login with my username and
+  password")* A second way in: `/admin/login` with a username and password belonging to the
+  developer only. The password is never stored — `ADMIN_PASSWORD_HASH` is a salted scrypt hash
+  (`npm run admin:password` makes it; `ADMIN_USERNAME` holds the username). Success sets an
+  encrypted, HttpOnly, SameSite=Strict cookie that expires after 8 hours, keyed separately from
+  the user session. Refused attempts get one generic message after a short delay; 5 attempts
+  per network per 15 minutes, 30 per hour overall. `/admin` redirects to the sign-in page when
+  not authorised; both pages are `noindex`. The Splitwise allowlist still works.
 - **SEC-27** Admin routes are a separate namespace with their own authorization check on every
   request, and they query **only** the events table — they have no code path to receipts,
   items, or shares.

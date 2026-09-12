@@ -1,7 +1,7 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import { webcrypto } from 'node:crypto'
 import path from 'node:path'
-import { SESSION_SECRET } from '../../playwright.full.config'
+import { ADMIN_PASSWORD, ADMIN_USERNAME, SESSION_SECRET } from '../../playwright.full.config'
 
 /**
  * Every screen, every real route, start to finish — signed in.
@@ -62,7 +62,14 @@ function watchForBreakage(page: Page): string[] {
   const problems: string[] = []
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`))
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) problems.push(`console: ${m.text()}`)
+    const text = m.text()
+    // Benign: WebKit logs this when a navigation (e.g. the sign-out form post)
+    // cancels Next.js's background prefetch of links; Next then does a normal
+    // page load. Real failures still surface as pageerror or HTTP 5xx below.
+    const cancelledPrefetch = /Failed to fetch RSC payload .* Falling back to browser navigation/.test(text)
+    if (m.type() === 'error' && !cancelledPrefetch && !/favicon|Failed to load resource/.test(text)) {
+      problems.push(`console: ${text}`)
+    }
   })
   page.on('response', (r) => {
     if (r.status() >= 500) problems.push(`HTTP ${r.status()} ${r.url()}`)
@@ -337,11 +344,77 @@ test('admin sees aggregate numbers, and the pages survive a real dashboard row',
   await page.getByRole('button', { name: /^add to splitwise$/i }).click()
   await expect(page.getByRole('heading', { name: 'Added to Splitwise' })).toBeVisible()
 
+  // The Splitwise allowlist (ADMIN_USER_IDS=101) is one way in.
   await page.goto('/admin')
-  await expect(page.getByRole('heading', { name: 'App overview' })).toBeVisible()
-  await expect(page.getByText('Saved splits')).toBeVisible()
-  await expect(page.getByText('$30.00')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How Gauravide is doing' })).toBeVisible()
+  await expect(page.locator('[data-kpi="sent"] strong')).toHaveText('1')
+  await expect(page.locator('[data-kpi="money"] strong')).toHaveText('$30.00')
   await expect(page.getByText('Pizza')).toHaveCount(0) // receipt contents never shown
   await expectNoErrorScreen(page)
+  expect(problems).toEqual([])
+})
+
+test('admin signs in with a username and password and sees the numbers', async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  const problems = watchForBreakage(page)
+
+  // One real split, sent as an ordinary signed-in user.
+  await page.goto('/new')
+  await page.getByRole('button', { name: 'Type it in' }).click()
+  await page.getByLabel(/item 1 name/i).fill('Sushi')
+  await page.getByLabel(/price of/i).fill('42.00')
+  await page.getByRole('button', { name: /looks right/i }).click()
+  await page.getByRole('button', { name: /add person/i }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Mayur Sabankar' }).click()
+  await page.getByRole('button', { name: /everyone shares everything/i }).click()
+  await page.getByRole('button', { name: /next: who paid/i }).click()
+  await page.getByRole('button', { name: /^add to splitwise$/i }).click()
+  await expect(page.getByRole('heading', { name: 'Added to Splitwise' })).toBeVisible()
+
+  // Signed out entirely: /admin sends you to the admin sign-in.
+  await context.clearCookies()
+  await page.goto('/admin')
+  await expect(page).toHaveURL(/\/admin\/login$/)
+  await expect(page.getByRole('heading', { name: 'Admin dashboard' })).toBeVisible()
+
+  await page.getByLabel('Username').fill(ADMIN_USERNAME)
+  await page.getByLabel('Password', { exact: true }).fill('not-the-password')
+  await page.getByRole('button', { name: /^sign in$/i }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /don’t match/ })).toBeVisible()
+  await expect(page).toHaveURL(/\/admin\/login$/)
+
+  await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD)
+  await page.getByRole('button', { name: 'Show password' }).click()
+  await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text')
+  await page.getByRole('button', { name: /^sign in$/i }).click()
+
+  await expect(page.getByRole('heading', { name: 'How Gauravide is doing' })).toBeVisible()
+  await expectNoErrorScreen(page)
+  await expect(page.locator('[data-kpi="sent"] strong')).toHaveText('1')
+  await expect(page.locator('[data-kpi="money"] strong')).toHaveText('$42.00')
+  await expect(page.locator('[data-kpi="people"] strong')).toHaveText('1')
+  await expect(page.locator('[data-kpi="time"]')).toContainText(/min|hours/)
+  await expect(page.getByText(/involving 2 people/)).toBeVisible()
+  await expect(page.getByText('Sushi')).toHaveCount(0) // never what anyone bought
+  // How often, and how much it saves each person.
+  await expect(page.getByRole('heading', { name: 'How often people use it' })).toBeVisible()
+  await expect(page.locator('[data-kpi="weekly-active"] dd')).toHaveText('1')
+  await expect(page.locator('[data-kpi="time-per-person"] dd')).toContainText(/min|hours/)
+  await expect(page.getByRole('heading', { name: 'Time saved each week' })).toBeVisible()
+  await expect(page.getByText(/saved per person who sent a split/)).toBeVisible()
+
+  await page.getByRole('link', { name: 'Last 7 days' }).click()
+  await expect(page.getByRole('link', { name: 'Last 7 days' })).toHaveAttribute('aria-current', 'page')
+  await page.getByText('Show as a table').click()
+  await expect(page.getByRole('columnheader', { name: 'Sent to Splitwise' })).toBeVisible()
+  if (!isMobile) await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible()
+
+  await page.getByRole('button', { name: /^sign out$/i }).click()
+  await expect(page).toHaveURL(/\/admin\/login$/)
+  await page.goto('/admin')
+  await expect(page).toHaveURL(/\/admin\/login$/)
   expect(problems).toEqual([])
 })

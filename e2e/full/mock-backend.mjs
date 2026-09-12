@@ -59,19 +59,23 @@ function send(res, status, body, headers = {}) {
 /* ─────────────────────────── PostgREST ─────────────────────────── */
 
 function field(row, key) {
+  // data->x returns JSON as-is; data->>x returns text.
+  if (key.startsWith('data->') && !key.startsWith('data->>')) return row.data?.[key.slice(6)] ?? null
   if (key.startsWith('data->>')) {
     const value = row.data?.[key.slice(7)]
     return value === undefined || value === null ? null : String(value)
   }
+  // Plain columns come back as their JSON value (props stays an object), like PostgREST.
   const value = row[key]
-  return value === undefined || value === null ? null : String(value)
+  return value === undefined ? null : value
 }
 
 function matches(row, params) {
   for (const [key, value] of params) {
     if (['select', 'order', 'limit'].includes(key)) continue
     if (!value.startsWith('eq.')) continue
-    if (field(row, key) !== value.slice(3)) return false
+    const actual = field(row, key)
+    if (actual === null || String(actual) !== value.slice(3)) return false
   }
   return true
 }

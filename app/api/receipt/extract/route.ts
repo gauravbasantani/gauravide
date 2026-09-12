@@ -130,6 +130,14 @@ export async function POST(req: Request) {
       warnings: result.warnings,
     })
   } catch (err) {
+    // Reader health for the admin dashboard — the error type only, never content.
+    if (dbConfigured) {
+      insert('events', {
+        user_key: ownerId(session),
+        name: 'receipt_failed',
+        props: { reason: err instanceof ExtractionUnavailable ? 'unavailable' : 'error' },
+      }).catch(() => undefined)
+    }
     if (err instanceof ExtractionUnavailable) {
       // Both providers gone. Manual entry always works — never a dead end.
       return NextResponse.json(

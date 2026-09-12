@@ -239,6 +239,11 @@ export async function POST(req: Request) {
       included: input.included ?? null,
       weights: input.weights,
       exact: input.exact,
+      // Counts and ids only, for the admin dashboard's aggregates (MET-19).
+      itemCount: input.items.length,
+      peopleCount: plan.participants.length,
+      payerCount: payers.length,
+      participants: plan.participants,
     }
 
     let splitId: string | null = editing?.id ?? null
@@ -266,6 +271,8 @@ export async function POST(req: Request) {
             mode: input.mode,
             payers: payers.length > 1 ? 'several' : 'one',
             item_splits: input.items.some((item) => item.split) ? 'yes' : 'no',
+            items: input.items.length,
+            people: plan.participants.length,
           },
         })
         historySaved = true
