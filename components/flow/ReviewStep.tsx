@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { formatMoney, parseMoney } from '@/lib/money'
-import { splitQuantityIntoItems, type ExtractedReceipt } from '@/lib/receipt'
+import { splitQuantityIntoItems, unitCount, type ExtractedReceipt } from '@/lib/receipt'
 import styles from './ReviewStep.module.css'
 import flow from './flow.module.css'
 
@@ -26,7 +26,7 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
   const total =
     receipt.totalCents ?? subtotal + receipt.taxCents + receipt.tipCents + receipt.feeCents
   const namedItems = receipt.items.filter((item) => item.name.trim()).length
-  const quantityLines = receipt.items.filter((item) => item.qty >= 2).length
+  const quantityLines = receipt.items.filter((item) => unitCount(item) >= 2).length
 
   function patchItem(index: number, patch: Partial<ExtractedReceipt['items'][number]>) {
     const items = receipt.items.map((item, i) => (i === index ? { ...item, ...patch } : item))
@@ -40,8 +40,7 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
 
   function splitQuantity(index: number) {
     const item = receipt.items[index]
-    const quantity = Math.floor(item?.qty ?? 1)
-    if (!item || quantity < 2) return
+    if (!item || unitCount(item) < 2) return
 
     const rows = splitQuantityIntoItems(item)
     onChange({
@@ -123,7 +122,7 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
             const low = (item.confidence ?? 1) < LOW_CONFIDENCE
             return (
               <li
-                key={itemRevision + ':' + i}
+                key={item.id ?? itemRevision + ':' + i}
                 className={[styles.item, low ? styles.low : ''].filter(Boolean).join(' ')}
               >
                 <input
@@ -147,14 +146,16 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
                       Tax {item.taxFlag}
                     </span>
                   ) : null}
-                  {item.qty > 1 ? (
+                  {unitCount(item) >= 2 ? (
                     <button
                       type="button"
                       className={styles.splitQty}
                       onClick={() => splitQuantity(i)}
                     >
-                      Split into {Math.floor(item.qty)}
+                      Split into {unitCount(item)}
                     </button>
+                  ) : item.qty > 1 ? (
+                    <span className="t-caption">Qty {item.qty} · shared as one line</span>
                   ) : null}
                   {low ? <span className="t-caption">Check this one</span> : null}
                   <button
@@ -192,7 +193,10 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
               }
               onChange({
                 ...receipt,
-                items: [...receipt.items, { name: '', qty: 1, cents: 0, confidence: 1 }],
+                items: [
+                  ...receipt.items,
+                  { id: crypto.randomUUID(), name: '', qty: 1, cents: 0, confidence: 1 },
+                ],
               })
             }}
           >

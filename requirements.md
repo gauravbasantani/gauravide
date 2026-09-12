@@ -402,6 +402,69 @@ gap under each:
 - **FR-22** Idempotency: a submit token prevents a double-tap creating two expenses.
 - **FR-23** On API failure, keep all the user's work on screen and offer retry. Never lose their assignments.
 
+### Split modes, payers, and real-life cases (added 2026-09-12)
+
+*Raised by Gaurav after reviewing commit 7133e02: "all edge cases to split A, B, C, D, E — that
+tomato one — and sometimes two people paid the receipt, or someone is splitting a friend's
+receipt; same structure as Splitwise: paid by who, divide equally, etc."*
+
+- **FR-24** **Four split modes, same as Splitwise**, chosen on the split screen and switchable
+  without losing anything:
+  | Mode | What the user does | Math |
+  |---|---|---|
+  | By item (default) | Taps who had each line | Per-line even split + tax by flag (FR-16) |
+  | Equally | Ticks who is in | `allocate(total, 1 each)` over the ticked people |
+  | By shares | − / + shares per person (a couple = 2) | `allocate(total, shares)` |
+  | Exact amounts | Types what each owes | Must sum to the total exactly; remaining shown live |
+- **FR-25** **Several payers.** "Who paid?" offers *One person* (default: you) or *Several
+  people* with an amount each. Payments must sum to the total to the cent; the remaining amount
+  is shown live. Each payer's `paid_share` goes to Splitwise as-is.
+- **FR-26** **A payer who had nothing is still on the expense** with owed 0 (e.g. "I paid, I
+  didn't eat"). Anyone with paid = 0 and owed = 0 is left off.
+- **FR-27** **A friend's receipt.** You can log a bill someone else paid, including one you
+  weren't part of. If it is a non-group expense without you, warn that Splitwise may require a
+  group, and show Splitwise's own refusal text if it does.
+- **FR-28** **Settle-up preview.** The confirm screen, the saved split, and the success screen
+  show each person's share, what they paid, their net ("gets back" green / "owes" orange,
+  Splitwise's colours), and the simplest transfers ("Maya pays Gaurav $30.00").
+- **FR-29** **One calculation everywhere.** `planSplit()` in `lib/split.ts` is used by the
+  split screen, the confirm screen, and the submit route, so the preview can never differ from
+  what reaches Splitwise.
+- **FR-30** **Worked example (tested in `tests/plan.test.ts`).** People A–E. Tomatoes ×4 at
+  $12.00 split into units: 2 bags A+B, 1 bag C, 1 bag D; wine $25.00 shared by all five. A paid
+  $20.00, E paid $17.00. Shares: A $8, B $8, C $8, D $8, E $5. Net: A +$12, E +$12, B/C/D −$8.
+  Transfers: B→A $8, C→A $4, C→E $4, D→E $8.
+- **FR-31** **The "who's splitting" step explains itself.** Step 3 opens with *Add everyone on
+  this bill* and a one-line why (only added people can be given items or marked as payer). When
+  signed in, you are added automatically and pre-selected as payer. Removing a person removes
+  them from items, shares, exact amounts and payers.
+
+### Gaps closed by the 2026-09-12 review
+
+- **GAP-24** Assignments were keyed by row position; removing or splitting a row after
+  assigning silently moved people onto the wrong items. Items now carry a stable `id`;
+  assignments are keyed by it; drafts moved to `v2`.
+- **GAP-25** Duplicate expense after success + refresh. The draft now stores `submitKey` and
+  `submittedExpenseId`; a restored draft shows the success screen. The server also checks
+  `data->>idempotencyKey` in `splits` so a retry on another serverless instance returns the
+  original expense.
+- **GAP-26** Weight lines (2.5 lb) offered "Split into 2". Only whole quantities 2–50 can be
+  split into units.
+- **GAP-27** Splitwise answers many failures with 200 + `errors`. These are now shown to the
+  user ("Splitwise didn't accept it: …") instead of "Couldn't reach Splitwise".
+
+### Visual direction (added 2026-09-12)
+
+*Gaurav pointed to https://finta.ai and https://www.finta.io as the look to aim for, and to
+Splitwise's own group/friend screens for list structure.*
+- Calm, spacious, centred hero; small pill badge; bold short headline; one dark primary CTA
+  plus an outlined secondary; soft sun-ray gradient; a real product mockup instead of
+  illustration; quiet bordered cards with icon + title + one line.
+- Lists follow Splitwise: month headings, a date column, an icon tile, a "You paid $X" subline,
+  and a right-hand "you lent / you borrowed" amount in green / orange.
+- Steps never render as four cramped columns: 1 column on phones, 2×2 on tablets, 4 across on
+  desktop. Progress labels wrap rather than truncate.
+
 ---
 
 ## 5b. Accuracy requirements
@@ -650,6 +713,11 @@ bought.**
   surveillance of one person's finances, and the boundary above says no. Recommendation:
   leave money out entirely.
 - **MET-4** The admin view is aggregate-first. Per-user rows show counts and dates only.
+- **MET-4a** *(2026-09-12)* Per-user labels are a keyed HMAC of the Splitwise id (derived from
+  `SESSION_SECRET`), not a plain hash — numeric ids are trivially brute-forced. Admin queries
+  select narrow columns only and read up to 10,000 rows, flagging when that cap is hit. The
+  feedback inbox (messages people chose to send, with an optional reply address) is shown
+  deliberately and labelled as such.
 
 ### Metrics worth having
 

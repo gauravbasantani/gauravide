@@ -41,6 +41,26 @@ export class SplitwiseError extends Error {
   get needsReauth(): boolean {
     return this.status === 401
   }
+  /** Splitwise refused the request and said why — safe to show the user. */
+  get refusal(): string | null {
+    return this.status === 422 ? this.message : null
+  }
+}
+
+/**
+ * Splitwise answers many failures with 200 OK and an `errors` object
+ * ({ base: ["..."], shares: ["..."] }). Flatten it to one readable line.
+ */
+export function splitwiseErrorText(errors: unknown): string | null {
+  const parts: string[] = []
+  const walk = (value: unknown) => {
+    if (typeof value === 'string') parts.push(value)
+    else if (Array.isArray(value)) value.forEach(walk)
+    else if (value && typeof value === 'object') Object.values(value).forEach(walk)
+  }
+  walk(errors)
+  const text = parts.join(' ').replace(/\s+/g, ' ').trim()
+  return text ? text.slice(0, 200) : null
 }
 
 function credentials(): { id: string; secret: string } {
@@ -154,21 +174,29 @@ export async function addUsersToGroup(
   memberIds: number[],
 ): Promise<void> {
   for (const userId of memberIds) {
-    const body = await call<{ success?: boolean }>(token, 'add_user_to_group', {
+    const body = await call<{ success?: boolean; errors?: unknown }>(token, 'add_user_to_group', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ group_id: String(groupId), user_id: String(userId) }),
     })
-    if (!body.success) throw new SplitwiseError(502, 'add_user_to_group was not accepted')
+    if (!body.success) {
+      const reason = splitwiseErrorText(body.errors)
+      throw new SplitwiseError(reason ? 422 : 502, reason ?? 'add_user_to_group was not accepted')
+    }
   }
 }
 
 /** Deletes an expense for every person who can see it in Splitwise. */
 export async function deleteExpense(token: string, expenseId: number): Promise<void> {
-  const body = await call<{ success?: boolean }>(token, 'delete_expense/' + expenseId, {
-    method: 'POST',
-  })
-  if (!body.success) throw new SplitwiseError(502, 'delete_expense was not accepted')
+  const body = await call<{ success?: boolean; errors?: unknown }>(
+    token,
+    'delete_expense/' + expenseId,
+    { method: 'POST' },
+  )
+  if (!body.success) {
+    const reason = splitwiseErrorText(body.errors)
+    throw new SplitwiseError(reason ? 422 : 502, reason ?? 'delete_expense was not accepted')
+  }
 }
 
 export type ExpenseShare = { userId: number; paidCents: number; owedCents: number }
@@ -225,6 +253,9 @@ export async function createExpense(
     },
   )
 
+  // 200 OK is not success: an `errors` object means nothing was created.
+  const refusal = splitwiseErrorText(body.errors)
+  if (refusal) throw new SplitwiseError(422, refusal)
   const created = body.expenses?.[0]
   if (!created) throw new SplitwiseError(502, `create_expense returned no expense`)
   return { id: created.id }

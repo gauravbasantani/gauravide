@@ -36,9 +36,10 @@ export async function insert(table: string, row: Json): Promise<void> {
   if (!res.ok) throw new DbError(`insert ${table} ${res.status}`)
 }
 
-export async function selectAll<T>(table: string, limit = 500): Promise<T[]> {
+/** Admin only. Pass narrow `columns` — never pull receipt contents for a count. */
+export async function selectAll<T>(table: string, limit = 500, columns = '*'): Promise<T[]> {
   const params = new URLSearchParams({
-    select: '*',
+    select: columns,
     order: 'created_at.desc',
     limit: String(limit),
   })
@@ -72,6 +73,29 @@ export async function selectOneOwned<T>(
   })
   const res = await request(`${table}?${params}`, { method: 'GET' })
   if (!res.ok) throw new DbError(`select one ${table} ${res.status}`)
+  const rows = (await res.json()) as T[]
+  return rows[0] ?? null
+}
+
+/**
+ * The owner's row whose JSON `data` has `field` equal to `value`, if any.
+ * Used for the submit idempotency key, so a retry on another serverless
+ * instance still finds the expense the first attempt created (FR-22).
+ */
+export async function findOwnedByDataField<T>(
+  table: string,
+  owner: string,
+  field: string,
+  value: string,
+): Promise<T | null> {
+  const params = new URLSearchParams({
+    select: '*',
+    owner_id: `eq.${owner}`,
+    [`data->>${field}`]: `eq.${value}`,
+    limit: '1',
+  })
+  const res = await request(`${table}?${params}`, { method: 'GET' })
+  if (!res.ok) throw new DbError(`find ${table} ${res.status}`)
   const rows = (await res.json()) as T[]
   return rows[0] ?? null
 }

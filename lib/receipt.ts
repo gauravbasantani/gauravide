@@ -19,6 +19,12 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.6-flash'
 /* ─────────────────────────── Schema ─────────────────────────── */
 
 export const ExtractedItem = z.object({
+  /**
+   * Stable client-side identity. Assignments are keyed by this, never by row
+   * position — removing or splitting a row must not move people onto the
+   * wrong item (GAP-24).
+   */
+  id: z.string().max(80).optional(),
   name: z.string().min(1).max(120),
   qty: z.number().finite().min(0).max(999).default(1),
   /** Line total in cents, already multiplied by qty. Negative for discounts. */
@@ -54,7 +60,7 @@ export type ExtractedItem = z.infer<typeof ExtractedItem>
  * bought by different people.
  */
 export function splitQuantityIntoItems(item: ExtractedItem): ExtractedItem[] {
-  const quantity = Math.floor(item.qty)
+  const quantity = unitCount(item)
   if (quantity < 2) return [item]
 
   const sign = item.cents < 0 ? -1 : 1
@@ -64,11 +70,32 @@ export function splitQuantityIntoItems(item: ExtractedItem): ExtractedItem[] {
 
   return Array.from({ length: quantity }, (_, index) => ({
     ...item,
+    ...(item.id ? { id: item.id + ':' + (index + 1) } : {}),
     name: item.name + ' (' + (index + 1) + ' of ' + quantity + ')',
     qty: 1,
     cents: sign * (base + (index < remainder ? 1 : 0)),
   }))
 }
+
+/** The most units one line may become — beyond this it is a weight, not a count. */
+export const MAX_UNITS = 50
+
+/**
+ * How many separately assignable units a line holds. Weights and volumes
+ * (2.5 lb) are not units and return 1 (FR-12d).
+ */
+export function unitCount(item: Pick<ExtractedItem, 'qty'>): number {
+  return Number.isInteger(item.qty) && item.qty >= 2 && item.qty <= MAX_UNITS ? item.qty : 1
+}
+
+/** Give every item a stable id, keeping any it already has. */
+export function withItemIds(receipt: ExtractedReceipt, makeId: () => string): ExtractedReceipt {
+  return { ...receipt, items: receipt.items.map((item) => (item.id ? item : { ...item, id: makeId() })) }
+}
+
+/** The id assignments are keyed by. Falls back to position for legacy rows. */
+export const itemKey = (item: Pick<ExtractedItem, 'id'>, index: number): string =>
+  item.id ?? String(index)
 
 export type ExtractionSource = 'gemini' | 'ocrspace' | 'manual'
 

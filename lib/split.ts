@@ -163,6 +163,163 @@ export function computeSplit(input: SplitInput): SplitResult {
   }
 }
 
+/* ───────────────────── Split modes and payers ───────────────────── */
+
+/**
+ * How the receipt is divided — the same four ways Splitwise offers, with
+ * "by item" first because it is the reason this app exists (FR-24).
+ */
+export type SplitMode = 'items' | 'equal' | 'shares' | 'exact'
+
+/** One person's contribution to paying the bill (FR-25). */
+export type Payment = { personId: PersonId; cents: Cents }
+
+export type PlanInput = SplitInput & {
+  mode: SplitMode
+  /** Equal mode: who is in. Defaults to everyone. */
+  included?: readonly PersonId[]
+  /** Shares mode: whole-number shares per person (2 = twice as much as 1). */
+  weights?: Readonly<Record<PersonId, number>>
+  /** Exact mode: what each person owes, in cents. Must sum to the total. */
+  exact?: Readonly<Record<PersonId, Cents>>
+  /** Who paid, and how much. Must sum to the total. */
+  payers: readonly Payment[]
+}
+
+export type PlanProblem =
+  | 'no_people'
+  | 'unassigned'
+  | 'items_mismatch'
+  | 'nobody_included'
+  | 'no_shares'
+  | 'exact_mismatch'
+  | 'no_payer'
+  | 'payer_not_in_split'
+  | 'payers_mismatch'
+
+export type Plan =
+  | {
+      ok: true
+      /** What each person's share of the bill is. Sums to the total. */
+      owed: Record<PersonId, Cents>
+      /** What each person put in. Sums to the total. */
+      paid: Record<PersonId, Cents>
+      /** Everyone with a non-zero paid or owed amount — who goes on the expense. */
+      participants: PersonId[]
+      taxMethod: TaxMethod | null
+    }
+  | {
+      ok: false
+      problem: PlanProblem
+      /** Signed cents still to account for, when the problem is a sum. */
+      gap?: Cents
+      unassignedItemIds?: string[]
+    }
+
+/**
+ * The single source of truth for "who owes what, who paid what".
+ *
+ * Both the confirm screen and the submit route call this, so the preview can
+ * never disagree with what reaches Splitwise (ARCHITECTURE.md A5).
+ */
+export function planSplit(input: PlanInput): Plan {
+  const { people, totalCents } = input
+  if (people.length === 0) return { ok: false, problem: 'no_people' }
+
+  let owed: Record<PersonId, Cents>
+  let taxMethod: TaxMethod | null = null
+
+  if (input.mode === 'items') {
+    const r = computeSplit(input)
+    if (r.unassignedItemIds.length > 0) {
+      return { ok: false, problem: 'unassigned', unassignedItemIds: r.unassignedItemIds }
+    }
+    // Judge reconciliation BEFORE settling — see settleRounding.
+    const gap = totalCents - r.computedTotal
+    if (Math.abs(gap) > maxRoundingDrift(people.length)) {
+      return { ok: false, problem: 'items_mismatch', gap }
+    }
+    owed = r.shares
+    taxMethod = r.taxMethod
+  } else if (input.mode === 'equal') {
+    const included = people.filter((p) => (input.included ?? people).includes(p))
+    if (included.length === 0) return { ok: false, problem: 'nobody_included' }
+    owed = empty(people)
+    addInto(owed, included, allocate(totalCents, included.map(() => 1)))
+  } else if (input.mode === 'shares') {
+    const weights = people.map((p) => Math.max(0, Math.floor(input.weights?.[p] ?? 0)))
+    if (weights.every((w) => w === 0)) return { ok: false, problem: 'no_shares' }
+    owed = empty(people)
+    addInto(owed, people, allocate(totalCents, weights))
+  } else {
+    owed = empty(people)
+    for (const p of people) owed[p] = Math.trunc(input.exact?.[p] ?? 0)
+    const gap = totalCents - sum(Object.values(owed))
+    if (gap !== 0) return { ok: false, problem: 'exact_mismatch', gap }
+  }
+
+  // Payers. Every payer must be in the split, and together they cover the
+  // whole bill — Splitwise rejects anything else.
+  const payers = input.payers.filter((p) => p.cents !== 0)
+  if (payers.length === 0) return { ok: false, problem: 'no_payer' }
+  if (payers.some((p) => !people.includes(p.personId))) {
+    return { ok: false, problem: 'payer_not_in_split' }
+  }
+  const paid = empty(people)
+  for (const p of payers) paid[p.personId] = (paid[p.personId] ?? 0) + Math.trunc(p.cents)
+  const payGap = totalCents - sum(Object.values(paid))
+  if (payGap !== 0) return { ok: false, problem: 'payers_mismatch', gap: payGap }
+
+  // Genuine rounding only (items mode) goes to whoever paid the most (FR-18).
+  const primary = [...payers].sort((a, b) => b.cents - a.cents)[0]?.personId ?? ''
+  owed = settleRounding(owed, totalCents, primary)
+
+  const participants = people.filter((p) => (owed[p] ?? 0) !== 0 || (paid[p] ?? 0) !== 0)
+  return { ok: true, owed, paid, participants, taxMethod }
+}
+
+/**
+ * Net position per person: positive gets money back, negative owes.
+ * Always sums to zero.
+ */
+export function netBalances(
+  owed: Readonly<Record<PersonId, Cents>>,
+  paid: Readonly<Record<PersonId, Cents>>,
+): Record<PersonId, Cents> {
+  const ids = new Set([...Object.keys(owed), ...Object.keys(paid)])
+  return Object.fromEntries([...ids].map((id) => [id, (paid[id] ?? 0) - (owed[id] ?? 0)]))
+}
+
+export type Transfer = { from: PersonId; to: PersonId; cents: Cents }
+
+/**
+ * Who should pay whom to settle this one receipt — "Alex owes Gaurav $24".
+ * Greedy, in the order people were added, so it is stable between renders.
+ */
+export function suggestTransfers(net: Readonly<Record<PersonId, Cents>>): Transfer[] {
+  const debtors = Object.entries(net)
+    .filter(([, cents]) => cents < 0)
+    .map(([id, cents]) => ({ id, left: -cents }))
+  const creditors = Object.entries(net)
+    .filter(([, cents]) => cents > 0)
+    .map(([id, cents]) => ({ id, left: cents }))
+  const out: Transfer[] = []
+  let i = 0
+  let j = 0
+  while (i < debtors.length && j < creditors.length) {
+    const d = debtors[i]
+    const c = creditors[j]
+    if (!d || !c) break
+    const cents = Math.min(d.left, c.left)
+    if (cents > 0) out.push({ from: d.id, to: c.id, cents })
+    d.left -= cents
+    c.left -= cents
+    if (d.left === 0) i++
+    if (c.left === 0) j++
+  }
+  return out
+}
+
 /**
  * The largest gap that can legitimately come from rounding: at most one cent
  * per person per allocation pass (items, tax, tip/fees).

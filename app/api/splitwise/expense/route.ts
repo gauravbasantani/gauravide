@@ -2,82 +2,115 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession, ownerId } from '@/lib/session'
 import { createExpense, SplitwiseError } from '@/lib/splitwise'
-import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
+import { planSplit, type Item } from '@/lib/split'
 import { rateLimit } from '@/lib/ratelimit'
-import { dbConfigured, insert } from '@/lib/db'
+import { dbConfigured, findOwnedByDataField, insert } from '@/lib/db'
+import type { StoredSplit } from '@/lib/history'
 
 export const runtime = 'nodejs'
+
+const UserId = z.number().int().positive()
+const Cents = z.number().int().min(-100_000_000).max(100_000_000)
+const IdKey = z.string().regex(/^\d{1,12}$/)
 
 const Body = z.object({
   merchant: z.string().max(120).nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  currency: z.string().length(3).default('USD'),
+  currency: z.string().regex(/^[A-Z]{3}$/).default('USD'),
   groupId: z.number().int().min(0), // 0 = non-group expense (FR-19a)
   groupName: z.string().min(1).max(120).default('No group'),
-  payerId: z.number().int(),
-  totalCents: z.number().int().positive(),
-  taxCents: z.number().int().default(0),
-  tipCents: z.number().int().default(0),
-  feeCents: z.number().int().default(0),
-  taxLines: z.array(z.object({ flag: z.string().max(3), cents: z.number().int() })).default([]),
-  items: z.array(
-    z.object({
-      name: z.string().max(120),
-      cents: z.number().int(),
-      taxFlag: z.string().max(3).optional(),
-      people: z.array(z.number().int()),
-    }),
-  ),
-  people: z.array(z.object({ id: z.number().int(), name: z.string().min(1).max(120) })).min(1),
-  /** Guards against a double-tap creating two expenses (FR-22). */
+  totalCents: z.number().int().positive().max(100_000_000),
+  taxCents: Cents.default(0),
+  tipCents: Cents.default(0),
+  feeCents: Cents.default(0),
+  taxLines: z.array(z.object({ flag: z.string().max(3), cents: Cents })).max(10).default([]),
+  mode: z.enum(['items', 'equal', 'shares', 'exact']).default('items'),
+  included: z.array(UserId).max(50).optional(),
+  weights: z.record(IdKey, z.number().int().min(0).max(99)).default({}),
+  exact: z.record(IdKey, Cents).default({}),
+  payers: z.array(z.object({ personId: UserId, cents: Cents })).max(50).optional(),
+  /** Older clients sent one payer who paid everything. */
+  payerId: UserId.optional(),
+  items: z
+    .array(
+      z.object({
+        name: z.string().max(160),
+        cents: Cents,
+        taxFlag: z.string().max(3).optional(),
+        people: z.array(UserId).max(50),
+      }),
+    )
+    .max(400),
+  people: z.array(z.object({ id: UserId, name: z.string().min(1).max(120) })).min(1).max(50),
+  /** Guards against a double tap, a refresh, or a retry creating two expenses (FR-22). */
   idempotencyKey: z.string().uuid(),
 })
 
+// Fast path for a double tap on the same instance. The database lookup below
+// is what holds across serverless instances.
 const recent = new Map<string, { id: number; at: number }>()
+const RECENT_MS = 5 * 60_000
+
+const fail = (status: number, error: string, message: string) =>
+  NextResponse.json({ error, message }, { status })
 
 export async function POST(req: Request) {
   const session = await getSession()
-  if (!session.accessToken) {
-    return NextResponse.json(
-      { error: 'signed_out', message: 'Sign in with Splitwise first.' },
-      { status: 401 },
-    )
-  }
+  if (!session.accessToken) return fail(401, 'signed_out', 'Sign in with Splitwise first.')
+  const owner = ownerId(session)
 
-  const limit = rateLimit(`expense:${ownerId(session)}`, 30, 3600)
-  if (!limit.ok) {
-    return NextResponse.json(
-      { error: 'rate_limited', message: 'Slow down a moment — try again shortly.' },
-      { status: 429 },
-    )
-  }
+  const limit = rateLimit(`expense:${owner}`, 30, 3600)
+  if (!limit.ok) return fail(429, 'rate_limited', 'Slow down a moment — try again shortly.')
 
-  const parsed = Body.safeParse(await req.json())
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'invalid', message: 'Something about that split looked wrong.' },
-      { status: 400 },
-    )
-  }
+  const parsed = Body.safeParse(await req.json().catch(() => null))
+  if (!parsed.success) return fail(400, 'invalid', 'Something about that split looked wrong.')
   const input = parsed.data
 
-  // Idempotency: the same key within 5 minutes returns the same expense
-  // rather than creating a second one.
-  const seen = recent.get(input.idempotencyKey)
-  if (seen && Date.now() - seen.at < 5 * 60_000) {
-    return NextResponse.json({ id: seen.id, deduplicated: true })
+  // Idempotency: the same key returns the same expense, never a second one.
+  const now = Date.now()
+  for (const [key, entry] of recent) if (now - entry.at > RECENT_MS) recent.delete(key)
+  const memoKey = `${owner}:${input.idempotencyKey}`
+  const seen = recent.get(memoKey)
+  if (seen) return NextResponse.json({ id: seen.id, deduplicated: true, historySaved: true })
+  if (dbConfigured) {
+    try {
+      const existing = await findOwnedByDataField<StoredSplit>(
+        'splits',
+        owner,
+        'idempotencyKey',
+        input.idempotencyKey,
+      )
+      const existingId = Number(existing?.expense_ids[0])
+      if (existingId) {
+        return NextResponse.json({ id: existingId, deduplicated: true, historySaved: true })
+      }
+    } catch {
+      // History outage: fall through. The in-memory guard still covers a double tap.
+      console.error('[expense] idempotency lookup failed')
+    }
   }
+
+  // Every id the split mentions must be one of its people — a stale payer or
+  // a removed person must never reach Splitwise (review finding 2).
+  const peopleIds = [...new Set(input.people.map((p) => String(p.id)))]
+  const known = new Set(peopleIds)
+  const mentioned = [
+    ...input.items.flatMap((item) => item.people),
+    ...(input.included ?? []),
+    ...(input.payers ?? []).map((p) => p.personId),
+  ].map(String)
+  if (mentioned.some((id) => !known.has(id))) {
+    return fail(400, 'unknown_person', 'Someone in this split is no longer in it. Go back and check.')
+  }
+
+  const payers = input.payers
+    ? input.payers.map((p) => ({ personId: String(p.personId), cents: p.cents }))
+    : input.payerId
+      ? [{ personId: String(input.payerId), cents: input.totalCents }]
+      : []
 
   // The client's totals are a preview. The authoritative shares are computed
   // here, from raw assignments (ARCHITECTURE.md A5).
-  const people = [...new Set(input.items.flatMap((i) => i.people))]
-  if (people.length === 0) {
-    return NextResponse.json(
-      { error: 'nobody_assigned', message: 'Nobody is assigned to anything yet.' },
-      { status: 400 },
-    )
-  }
-
   const items: Item[] = input.items.map((item, i) => ({
     id: String(i),
     name: item.name,
@@ -86,46 +119,46 @@ export async function POST(req: Request) {
     people: item.people.map(String),
   }))
 
-  const result = computeSplit({
+  const plan = planSplit({
+    mode: input.mode,
     items,
-    people: people.map(String),
+    people: peopleIds,
+    ...(input.included ? { included: input.included.map(String) } : {}),
+    weights: input.weights,
+    exact: input.exact,
     taxLines: input.taxLines,
     taxCents: input.taxCents,
     tipCents: input.tipCents,
     feeCents: input.feeCents,
     totalCents: input.totalCents,
+    payers,
   })
 
-  if (result.unassignedItemIds.length > 0) {
-    return NextResponse.json(
-      { error: 'unassigned', message: 'Some items still need someone.' },
-      { status: 400 },
-    )
+  if (!plan.ok) {
+    if (plan.problem === 'items_mismatch') {
+      // Hard block (ACC-3 check 3). Reconciliation is judged before rounding.
+      console.error(`[expense] reconciliation failed: drift ${Math.abs(plan.gap ?? 0)} cents`)
+      return fail(
+        422,
+        'reconciliation_failed',
+        'The items don’t add up to the total on the receipt. We won’t submit something wrong — go back and check the amounts.',
+      )
+    }
+    const messages: Record<string, string> = {
+      unassigned: 'Some items still need someone.',
+      no_people: 'Add at least one person.',
+      nobody_included: 'Choose at least one person to split with.',
+      no_shares: 'Give at least one person a share.',
+      exact_mismatch: 'The exact amounts don’t add up to the total.',
+      no_payer: 'Choose who paid.',
+      payer_not_in_split: 'Whoever paid needs to be in the split.',
+      payers_mismatch: 'What people paid doesn’t add up to the total.',
+    }
+    return fail(400, plan.problem, messages[plan.problem] ?? 'Something about that split looked wrong.')
   }
 
-  // Hard block — and it MUST come before settleRounding (ACC-3 check 3).
-  //
-  // settleRounding makes the shares sum to the total by construction, so any
-  // check after it is dead code. Checking afterwards is what let a receipt
-  // whose items did not match its printed total push the entire difference
-  // onto the payer, while the UI said "matches receipt".
-  const drift = Math.abs(input.totalCents - result.computedTotal)
-  if (drift > maxRoundingDrift(people.length)) {
-    console.error(`[expense] reconciliation failed: drift ${drift} cents`)
-    return NextResponse.json(
-      {
-        error: 'reconciliation_failed',
-        message:
-          'The items don’t add up to the total on the receipt. We won’t submit something wrong — go back and check the amounts.',
-      },
-      { status: 422 },
-    )
-  }
-
-  // Only genuine rounding remains; give the odd cent to the payer (FR-18).
-  const shares = settleRounding(result.shares, input.totalCents, String(input.payerId))
-
-  const description = [input.merchant?.trim() || 'Receipt'].join('')
+  const description = input.merchant?.trim() || 'Receipt'
+  const primaryPayer = Number([...payers].sort((a, b) => b.cents - a.cents)[0]?.personId ?? 0)
 
   try {
     const { id } = await createExpense(session.accessToken, {
@@ -134,19 +167,19 @@ export async function POST(req: Request) {
       date: input.date,
       currency: input.currency,
       groupId: input.groupId,
-      shares: people.map((userId) => ({
-        userId,
-        paidCents: userId === input.payerId ? input.totalCents : 0,
-        owedCents: shares[String(userId)] ?? 0,
+      shares: plan.participants.map((userId) => ({
+        userId: Number(userId),
+        paidCents: plan.paid[userId] ?? 0,
+        owedCents: plan.owed[userId] ?? 0,
       })),
     })
 
-    recent.set(input.idempotencyKey, { id, at: Date.now() })
+    recent.set(memoKey, { id, at: Date.now() })
     let historySaved = false
     if (dbConfigured) {
       try {
         await insert('splits', {
-          owner_id: ownerId(session),
+          owner_id: owner,
           data: {
             merchant: input.merchant,
             date: input.date,
@@ -156,42 +189,49 @@ export async function POST(req: Request) {
             tipCents: input.tipCents,
             feeCents: input.feeCents,
             items: input.items,
-            people: input.people,
-            payerId: input.payerId,
+            people: input.people.filter((p) => plan.participants.includes(String(p.id))),
+            payerId: primaryPayer,
             groupId: input.groupId,
             groupName: input.groupName,
             status: 'in_splitwise',
+            mode: input.mode,
+            owed: plan.owed,
+            paid: plan.paid,
+            idempotencyKey: input.idempotencyKey,
           },
           expense_ids: [String(id)],
         })
         await insert('events', {
-          user_key: ownerId(session),
+          user_key: owner,
           name: 'split_submitted',
-          props: { source: 'splitwise', group: input.groupId === 0 ? 'none' : 'group' },
+          props: {
+            source: 'splitwise',
+            group: input.groupId === 0 ? 'none' : 'group',
+            mode: input.mode,
+            payers: payers.length > 1 ? 'several' : 'one',
+          },
         })
         historySaved = true
       } catch {
-        // The Splitwise expense has already been created. Do not turn a history
-        // outage into a misleading submission failure.
+        // The Splitwise expense already exists. Do not turn a history outage
+        // into a misleading submission failure.
         console.error('[expense] history save failed')
       }
     }
     return NextResponse.json({ id, historySaved })
   } catch (err) {
     if (err instanceof SplitwiseError && err.needsReauth) {
-      return NextResponse.json(
-        { error: 'reauth', message: 'You’ve been signed out of Splitwise. Sign in again — your split is still here.' },
-        { status: 401 },
+      return fail(
+        401,
+        'reauth',
+        'You’ve been signed out of Splitwise. Sign in again — your split is still here.',
       )
+    }
+    if (err instanceof SplitwiseError && err.refusal) {
+      return fail(422, 'splitwise_refused', `Splitwise didn’t accept it: ${err.refusal}`)
     }
     const detail = err instanceof SplitwiseError ? `${err.status}` : 'unknown'
     console.error(`[expense] create failed: ${detail}`)
-    return NextResponse.json(
-      {
-        error: 'splitwise_failed',
-        message: 'Couldn’t reach Splitwise. Your split is still here — try again.',
-      },
-      { status: 502 },
-    )
+    return fail(502, 'splitwise_failed', 'Couldn’t reach Splitwise. Your split is still here — try again.')
   }
 }

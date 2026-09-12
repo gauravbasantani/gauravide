@@ -8,7 +8,7 @@ async function reachAssignStep(page: Page) {
   await page.getByLabel(/item 1 name/i).fill('Pizza')
   await page.getByLabel(/price of/i).fill('24.00')
   await page.getByRole('button', { name: /looks right/i }).click()
-  await expect(page.getByRole('heading', { name: /who shares what/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
 }
 
 /**
@@ -44,7 +44,7 @@ test('AUDIT: a busy button keeps its accessible name and stays focusable', async
 test('AUDIT: a disabled button always explains why', async ({ page }) => {
   await reachAssignStep(page)
 
-  const review = page.getByRole('button', { name: /^review$/i })
+  const review = page.getByRole('button', { name: /next: who paid/i })
   await expect(review).toBeDisabled()
   const describedBy = await review.getAttribute('aria-describedby')
   expect(describedBy, 'must point at a reason').toBeTruthy()

@@ -1,43 +1,143 @@
-.peopleBar {
+/* ── People ─────────────────────────────────────────────────── */
+.emptyPeople {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  margin: 0 var(--space-5) var(--space-5);
+  padding: var(--space-6) var(--space-4);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  text-align: center;
+}
+
+.emptyPeople p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-meta);
+}
+
+.emptyAvatars {
+  display: flex;
+}
+
+.emptyAvatars span {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -8px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-full);
+  color: var(--person-on);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  align-items: center;
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border);
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  list-style: none;
 }
 
-.addPerson {
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-3);
-  border: 2px dashed var(--border-interactive);
+  padding: 4px 4px 4px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.chipAvatar,
+.friendAvatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--person-on);
+  font-size: var(--text-label);
+  font-weight: 700;
+}
+
+.chipName {
+  font-size: var(--text-meta);
+  font-weight: 500;
+}
+
+.you {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.chipRemove {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+
+.chipRemove:hover {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+.addPerson {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1.5px dashed var(--border-interactive);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
   font-size: var(--text-meta);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .addPerson:hover {
-  color: var(--primary);
   border-color: var(--primary);
+  background: var(--primary-subtle);
 }
 
-.shortcuts {
+/* ── Items ──────────────────────────────────────────────────── */
+.toolbar {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-5);
+  border-block: 1px solid var(--border);
+  background: var(--bg-subtle);
 }
 
 .item {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--space-2) var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border);
 }
 
@@ -47,11 +147,12 @@
 
 .unassigned {
   background: var(--warning-subtle);
-  border-left: 3px solid var(--warning-fill);
+  box-shadow: inset 3px 0 0 var(--warning-fill);
 }
 
 .itemName {
   font-size: var(--text-body);
+  font-weight: 500;
 }
 
 .itemPrice {
@@ -68,25 +169,135 @@
   grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 2px var(--space-1);
   align-items: center;
 }
 
 .warn {
+  margin-left: var(--space-2);
   font-size: var(--text-caption);
   color: var(--warning-text);
+  font-weight: 600;
+}
+
+.shared {
+  margin-left: var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.method,
+.modeNote {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* ── Equal / shares / exact rows ────────────────────────────── */
+.personRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.personRow:last-child {
+  border-bottom: none;
+}
+
+.personName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 500;
 }
 
-/* Running totals: always on screen, updating on every tap. There is no
-   Calculate button anywhere in this app (UX-11). */
+.personAmount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-interactive);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--primary-on);
+  font-weight: 700;
+  cursor: pointer;
+  /* 44px target around a 28px box */
+  outline: 8px solid transparent;
+}
+
+.check[data-on='true'] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.stepper button {
+  width: 44px;
+  height: 40px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-section);
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.stepper output {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.exactField {
+  width: 9rem;
+}
+
+.remaining {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+.remainingOk {
+  color: var(--success-text);
+}
+
+/* ── Running totals — always visible, no Calculate button (UX-11) ── */
 .running {
   position: sticky;
   bottom: 0;
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-5);
   overflow-x: auto;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   background: var(--surface);
   border-top: 1px solid var(--border-strong);
   border-radius: 0 0 var(--radius-md) var(--radius-md);
@@ -94,10 +305,16 @@
 
 .runner {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   white-space: nowrap;
   font-size: var(--text-meta);
+}
+
+.runnerDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
 }
 
 .runnerAmount {
@@ -106,12 +323,7 @@
   font-size: var(--text-body);
 }
 
-.method {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-caption);
-  color: var(--text-muted);
-}
-
+/* ── Add-person sheet ───────────────────────────────────────── */
 .friendList {
   display: flex;
   flex-wrap: wrap;
@@ -119,8 +331,11 @@
 }
 
 .friend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: 44px;
-  padding: 0 var(--space-4);
+  padding: 4px var(--space-4) 4px 4px;
   border: 1px solid var(--border-interactive);
   border-radius: var(--radius-full);
   background: var(--surface);
@@ -130,14 +345,36 @@
   cursor: pointer;
 }
 
+.friend:hover {
+  background: var(--primary-subtle);
+  border-color: var(--primary);
+}
+
+.friend .friendAvatar {
+  width: 30px;
+  height: 30px;
+}
+
 .addError {
   margin: 0;
   color: var(--danger-text);
   font-size: var(--text-caption);
 }
 
-.friend:hover {
-  background: var(--primary-subtle);
-  border-color: var(--primary);
-  color: var(--primary);
+@media (max-width: 480px) {
+  .toolbar,
+  .item,
+  .personRow,
+  .method,
+  .modeNote,
+  .remaining,
+  .running {
+    padding-inline: var(--space-4);
+  }
+  .chips {
+    padding-inline: var(--space-4);
+  }
+  .exactField {
+    width: 7.5rem;
+  }
 }

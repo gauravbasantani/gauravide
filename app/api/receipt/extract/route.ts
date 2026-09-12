@@ -46,7 +46,12 @@ export async function POST(req: Request) {
   const session = await getSession()
 
   // 2. Throttle. Protects the shared free-tier quota (GAP-12).
-  const limit = rateLimit(`extract:${ownerId(session)}`, 10, 3600)
+  // Per session AND per network address: dropping the anonymous cookie would
+  // otherwise reset the session limit on every request (review finding 5).
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const sessionLimit = rateLimit(`extract:${ownerId(session)}`, 10, 3600)
+  const ipLimit = rateLimit(`extract-ip:${ip}`, 30, 3600)
+  const limit = !sessionLimit.ok ? sessionLimit : ipLimit
   if (!limit.ok) {
     return NextResponse.json(
       {
@@ -66,7 +71,13 @@ export async function POST(req: Request) {
     )
   }
 
-  const form = await req.formData()
+  const form = await req.formData().catch(() => null)
+  if (!form) {
+    return NextResponse.json(
+      { error: 'no_file', message: 'No image was received. Try again.' },
+      { status: 400 },
+    )
+  }
   const file = form.get('file')
   if (!(file instanceof File)) {
     return NextResponse.json(
