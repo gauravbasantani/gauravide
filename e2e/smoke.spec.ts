@@ -34,7 +34,7 @@ test('THE BUG: "Type it in" advances to the review step', async ({ page }) => {
 
 test('file input is a real input that accepts a file', async ({ page }) => {
   await page.goto('/new')
-  const input = page.locator('input[type="file"]').nth(1) // "Choose a file"
+  const input = page.locator('input[type="file"]').last() // "Choose a file"
   await expect(input).toBeAttached()
   await expect(input).toHaveAttribute('accept', /image\/jpeg/)
 })

@@ -211,6 +211,8 @@ export type PlanInput = SplitInput & {
 }
 
 export type PlanProblem =
+  | 'no_total'
+  | 'negative_share'
   | 'no_people'
   | 'unassigned'
   | 'items_mismatch'
@@ -239,6 +241,8 @@ export type Plan =
       /** Signed cents still to account for, when the problem is a sum. */
       gap?: Cents
       unassignedItemIds?: string[]
+      /** Who the problem is about, when it is about one person. */
+      person?: PersonId
     }
 
 /**
@@ -250,6 +254,9 @@ export type Plan =
 export function planSplit(input: PlanInput): Plan {
   const { people, totalCents } = input
   if (people.length === 0) return { ok: false, problem: 'no_people' }
+  // Splitwise has no concept of a $0 or negative expense, and neither should
+  // a receipt: catch it here rather than at submit.
+  if (!Number.isFinite(totalCents) || totalCents <= 0) return { ok: false, problem: 'no_total' }
 
   let owed: Record<PersonId, Cents>
   let taxMethod: TaxMethod | null = null
@@ -307,6 +314,14 @@ export function planSplit(input: PlanInput): Plan {
   // Genuine rounding only (items mode) goes to whoever paid the most (FR-18).
   const primary = [...payers].sort((a, b) => b.cents - a.cents)[0]?.personId ?? ''
   owed = settleRounding(owed, totalCents, primary)
+
+  // Nobody can owe less than nothing — it happens when someone is given a
+  // discount line but not the item it discounts. Splitwise refuses it, and
+  // silently "fixing" it would charge the wrong person (FR-43).
+  const negative = people.find((p) => (owed[p] ?? 0) < 0)
+  if (negative) {
+    return { ok: false, problem: 'negative_share', gap: owed[negative] ?? 0, person: negative }
+  }
 
   const participants = people.filter((p) => (owed[p] ?? 0) !== 0 || (paid[p] ?? 0) !== 0)
   return { ok: true, owed, paid, participants, taxMethod }

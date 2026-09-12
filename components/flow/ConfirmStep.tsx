@@ -127,7 +127,7 @@ export function ConfirmStep({
   )
   const net = plan.ok ? netBalances(plan.owed, plan.paid) : {}
   const transfers = plan.ok ? suggestTransfers(net) : []
-  const problem = problemText(plan, currency)
+  const problem = problemText(plan, currency, people)
 
   // Only people with something paid or owed go on the Splitwise expense.
   const participantIds = plan.ok ? plan.participants : people.map((p) => p.id)

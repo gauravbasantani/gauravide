@@ -186,6 +186,9 @@ export async function POST(req: Request) {
     }
     const messages: Record<string, string> = {
       unassigned: 'Some items still need someone.',
+      no_total: 'The total needs to be more than zero.',
+      negative_share:
+        'Someone ends up owing less than nothing. Give them the item a discount belongs to, or share that discount.',
       item_exact_mismatch: 'One item’s exact amounts don’t add up to its price.',
       no_people: 'Add at least one person.',
       nobody_included: 'Choose at least one person to split with.',

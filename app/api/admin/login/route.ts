@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { adminLoginConfigured, checkAdminCredentials, startAdminSession } from '@/lib/adminAuth'
+import { adminSignInAvailable, checkAdminCredentials, startAdminSession } from '@/lib/adminAuth'
 import { rateLimit } from '@/lib/ratelimit'
 
 export const runtime = 'nodejs'
@@ -14,11 +14,11 @@ const json = (status: number, message: string, headers?: Record<string, string>)
   NextResponse.json({ message }, { status, headers })
 
 export async function POST(req: Request) {
-  if (!adminLoginConfigured()) return json(503, 'Admin sign-in isn’t switched on yet.')
+  if (!(await adminSignInAvailable())) return json(503, 'Admin sign-in isn’t switched on yet.')
 
-  // 5 tries per network per 15 minutes, 30 per hour overall: guessing is hopeless.
+  // 10 tries per network per 15 minutes, 30 per hour overall: guessing is hopeless.
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const perNetwork = rateLimit(`admin-login:${ip}`, 5, 15 * 60)
+  const perNetwork = rateLimit(`admin-login:${ip}`, 10, 15 * 60)
   const overall = rateLimit('admin-login:all', 30, 60 * 60)
   const limited = !perNetwork.ok ? perNetwork : !overall.ok ? overall : null
   if (limited && !limited.ok) {

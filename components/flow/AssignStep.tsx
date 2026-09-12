@@ -120,7 +120,7 @@ export function AssignStep({
     return {}
   }, [plan, settings, receipt, assignments, people, total])
 
-  const blocker = plan.ok || isPayerProblem(plan) ? undefined : problemText(plan, currency)
+  const blocker = plan.ok || isPayerProblem(plan) ? undefined : problemText(plan, currency, people)
   // What actually applies — discounts follow the item they discount (FR-42).
   const effective = useMemo(
     () => effectiveAssignments(receipt, assignments, settings.itemSplits),
@@ -282,28 +282,46 @@ export function AssignStep({
                 </span>
               </a>
             ) : null}
-            <p>
-              {canSignIn
-                ? 'Or type names just for this split — you can link them to Splitwise later.'
-                : 'Nobody here yet. Start with you, then add the others.'}
-            </p>
-            <div className={styles.emptyActions}>
-              {me ? (
-                <Button onClick={() => addPerson({ id: String(me.id), name: me.name })}>
-                  Add me ({me.name})
+            {canSignIn ? (
+              <details className={styles.manual}>
+                <summary>Split without signing in</summary>
+                <p>
+                  Type names just for this receipt. You’ll get the per-person totals to copy, but
+                  it can’t be added to Splitwise until those people are Splitwise friends.
+                </p>
+                <Button
+                  ref={addPersonTrigger}
+                  variant="secondary"
+                  onClick={() => {
+                    setAddError(null)
+                    setAdding(true)
+                  }}
+                >
+                  + Add a name
                 </Button>
-              ) : null}
-              <Button
-                ref={me ? undefined : addPersonTrigger}
-                variant={me ? 'secondary' : 'primary'}
-                onClick={() => {
-                  setAddError(null)
-                  setAdding(true)
-                }}
-              >
-                + Add person
-              </Button>
-            </div>
+              </details>
+            ) : (
+              <>
+                <p>Nobody here yet. Start with you, then add the others.</p>
+                <div className={styles.emptyActions}>
+                  {me ? (
+                    <Button onClick={() => addPerson({ id: String(me.id), name: me.name })}>
+                      Add me ({me.name})
+                    </Button>
+                  ) : null}
+                  <Button
+                    ref={me ? undefined : addPersonTrigger}
+                    variant={me ? 'secondary' : 'primary'}
+                    onClick={() => {
+                      setAddError(null)
+                      setAdding(true)
+                    }}
+                  >
+                    + Add person
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <ul className={styles.chips} aria-label="People in this split">
@@ -767,6 +785,7 @@ export function AssignStep({
         />
         {onAddSplitwisePerson ? (
           <>
+            <p className={styles.sheetDivider}>Not in your friends list yet?</p>
             <Field
               label="Email for Splitwise"
               type="email"

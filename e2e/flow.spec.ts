@@ -59,6 +59,15 @@ async function manualReceipt(page: Page, name: string, price: string) {
   await page.getByRole('button', { name: /looks right/i }).click()
 }
 
+/** Signed out, typing names sits behind "Split without signing in". */
+async function addName(page: Page, name: string) {
+  const disclosure = page.getByText('Split without signing in')
+  if (await disclosure.isVisible().catch(() => false)) await disclosure.click()
+  await page.getByRole('button', { name: /add (a name|person)/i }).first().click()
+  await page.getByLabel(/^name$/i).fill(name)
+  await page.getByRole('button', { name: /add to split/i }).click()
+}
+
 async function addFriend(page: Page, name: string) {
   await page.getByRole('button', { name: /add person/i }).first().click()
   await page.getByRole('button', { name }).click()
@@ -82,7 +91,7 @@ test.describe('the whole split, end to end', () => {
     await page.goto('/new')
 
     // 1. Upload — set the file on the real input behind the label.
-    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
     await expect(page.getByText(/receipt ready/i)).toBeVisible()
     await expect(page.getByAltText(/preview of the receipt/i)).toBeVisible()
     await page.getByRole('button', { name: /read this receipt/i }).click()
@@ -104,11 +113,7 @@ test.describe('the whole split, end to end', () => {
     // 3. Split — the screen explains why people are needed before asking.
     await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
     await expect(page.getByText(/add everyone on this bill/i)).toBeVisible()
-    for (const name of ['Gaurav', 'Alex']) {
-      await page.getByRole('button', { name: /add person/i }).first().click()
-      await page.getByLabel(/^name$/i).fill(name)
-      await page.getByRole('button', { name: /add to split/i }).click()
-    }
+    for (const name of ['Gaurav', 'Alex']) await addName(page, name)
 
     // Blocked until every item has someone.
     const next = page.getByRole('button', { name: /next: who paid/i })
@@ -182,7 +187,7 @@ test.describe('the whole split, end to end', () => {
     })
 
     await page.goto('/new')
-    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
     await page.getByRole('button', { name: /read this receipt/i }).click()
     await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
 
@@ -208,11 +213,7 @@ test.describe('the whole split, end to end', () => {
     await page.locator('input[aria-label^="Price of"]').nth(1).fill('10.00')
     await page.getByRole('button', { name: /looks right/i }).click()
 
-    for (const name of ['Sam', 'Lee']) {
-      await page.getByRole('button', { name: /add person/i }).first().click()
-      await page.getByLabel(/^name$/i).fill(name)
-      await page.getByRole('button', { name: /add to split/i }).click()
-    }
+    for (const name of ['Sam', 'Lee']) await addName(page, name)
     await page.getByRole('button', { name: 'Sam, sharing Steak' }).click()
     await page.getByRole('button', { name: 'Lee, sharing Salad' }).click()
 
@@ -359,14 +360,10 @@ test.describe('the whole split, end to end', () => {
       }),
     )
     await page.goto('/new')
-    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
     await page.getByRole('button', { name: /read this receipt/i }).click()
     await page.getByRole('button', { name: /looks right/i }).click()
-    for (const name of ['Gaurav', 'Mayur']) {
-      await page.getByRole('button', { name: /add person/i }).first().click()
-      await page.getByLabel(/^name$/i).fill(name)
-      await page.getByRole('button', { name: /add to split/i }).click()
-    }
+    for (const name of ['Gaurav', 'Mayur']) await addName(page, name)
     await page.getByRole('button', { name: 'Gaurav, sharing KS TOWEL' }).click()
     await page.getByRole('button', { name: 'Mayur, sharing HVST SNAPS' }).click()
 
@@ -386,7 +383,7 @@ test.describe('the whole split, end to end', () => {
     const signIn = page.getByRole('link', { name: /sign in with splitwise to add friends/i })
     await expect(signIn).toBeVisible()
     await expect(signIn).toHaveAttribute('href', '/api/auth/login?next=/new')
-    await expect(page.getByText(/or type names just for this split/i)).toBeVisible()
+    await expect(page.getByText('Split without signing in')).toBeVisible()
   })
 
   test('a typed name can be linked to a Splitwise friend without losing its items', async ({
@@ -513,7 +510,7 @@ test.describe('the whole split, end to end', () => {
     )
 
     await page.goto('/new')
-    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
     await page.getByRole('button', { name: /read this receipt/i }).click()
     await expect(page.getByLabel('Item 1 name')).toHaveValue('KS TOWEL')
     await expect(page.getByLabel('Item 2 name')).toHaveValue('Discount · SNAPS')

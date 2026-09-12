@@ -12,7 +12,7 @@ import type { StoredSplit } from '@/lib/history'
 import { getSession, ownerId } from '@/lib/session'
 import { stripJpegMetadata } from '@/lib/exif'
 import { rateLimit } from '@/lib/ratelimit'
-import { getObject, MAX_IMAGE_BYTES, putObject, StorageError } from '@/lib/storage'
+import { getObject, MAX_IMAGE_BYTES, putObject, RECEIPTS_BUCKET, StorageError } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -48,7 +48,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const found = await ownedSplit(params)
     if ('error' in found) return found.error
     if (!found.split.image_path) return json(404, 'No photo was kept for this split.')
-    const object = await getObject(found.split.image_path)
+    const object = await getObject(RECEIPTS_BUCKET, found.split.image_path)
     if (!object) return json(404, 'No photo was kept for this split.')
     return new NextResponse(object.body, {
       headers: {
@@ -83,7 +83,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const clean = type.mime === 'image/jpeg' ? stripJpegMetadata(bytes) : bytes
 
     const path = `${found.owner}/${found.split.id}.${type.ext}`
-    await putObject(path, clean, type.mime)
+    await putObject(RECEIPTS_BUCKET, path, clean, type.mime)
     await updateOwned('splits', found.owner, found.split.id, { image_path: path })
     return NextResponse.json({ ok: true })
   } catch (error) {

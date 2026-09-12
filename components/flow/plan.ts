@@ -120,11 +120,16 @@ export function buildPlan(
 }
 
 /** A plain-language reason a plan cannot be sent yet. */
-export function problemText(plan: Plan, currency: string): string | undefined {
+export function problemText(plan: Plan, currency: string, people: Person[] = []): string | undefined {
   if (plan.ok) return undefined
   const fmt = (cents: number) => formatMoney(Math.abs(cents), currency)
   const gap = plan.gap ?? 0
+  const who = people.find((p) => p.id === plan.person)?.name ?? 'Someone'
   switch (plan.problem) {
+    case 'no_total':
+      return 'The total needs to be more than zero'
+    case 'negative_share':
+      return `${who} ends up owing less than nothing (${fmt(gap)}) — give them the item a discount belongs to, or share that discount`
     case 'no_people':
       return 'Add at least one person'
     case 'unassigned': {

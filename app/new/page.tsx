@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UploadStep } from '@/components/flow/UploadStep'
 import { ReviewStep } from '@/components/flow/ReviewStep'
@@ -110,6 +110,17 @@ export default function NewSplitPage() {
       editing,
     })
   }, [step, receipt, people, assignments, payerId, settings, submitKey, submittedExpenseId, editing])
+
+  // Each step starts at its own top. With the sticky CTA on a phone, tapping
+  // Next otherwise left you halfway down the next screen.
+  const firstStep = useRef(true)
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false
+      return
+    }
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [step])
 
   const imageUrl = useMemo(
     () => (receiptImage ? URL.createObjectURL(receiptImage) : null),

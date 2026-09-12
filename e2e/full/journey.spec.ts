@@ -29,6 +29,7 @@ type BackendState = {
   objects: string[]
   expenses: ExpenseState[]
   groups: { id: number; name: string }[]
+  emails: { to: string[]; subject: string; text: string }[]
   calls: string[]
 }
 
@@ -130,7 +131,7 @@ test('scan → split → send → dashboard → split page → edit → archive 
 
   /* ── 1. Scan ──────────────────────────────────────────────────────── */
   await expect(page.getByRole('heading', { name: /new receipt/i })).toBeVisible()
-  await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+  await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
   await page.getByRole('button', { name: /read this receipt/i }).click()
 
   /* ── 2. Check items ───────────────────────────────────────────────── */
@@ -417,4 +418,117 @@ test('admin signs in with a username and password and sees the numbers', async (
   await page.goto('/admin')
   await expect(page).toHaveURL(/\/admin\/login$/)
   expect(problems).toEqual([])
+})
+
+test('forgot password: the emailed link sets a new one, and it can be changed again', async ({
+  page,
+  context,
+}) => {
+  const problems = watchForBreakage(page)
+  const NEW_PASSWORD = 'Reset-Password-2026'
+  const NEWER_PASSWORD = 'Changed-Password-2026'
+
+  await context.clearCookies()
+  await page.goto('/admin/login')
+  await page.getByRole('link', { name: /forgot your password/i }).click()
+  await expect(page.getByRole('heading', { name: 'Reset your password' })).toBeVisible()
+  await expect(page.getByText(/^a\*+@example\.com$/)).toBeVisible() // masked, never in full
+  await page.getByRole('button', { name: /email me a reset link/i }).click()
+  await expect(page.getByText(/check a\*+@example\.com/i)).toBeVisible()
+
+  // The link only exists in the email.
+  const state = await backend()
+  expect(state.emails).toHaveLength(1)
+  const email = state.emails[0]!
+  expect(email.to).toEqual(['admin@example.com'])
+  const link = /https?:\/\/\S+\/admin\/reset\?token=\S+/.exec(email.text)?.[0]
+  expect(link, 'the email must contain a reset link').toBeTruthy()
+
+  await page.goto(link!)
+  await page.getByLabel('New password', { exact: true }).fill('short')
+  await expect(page.getByText('Use at least 10 characters.')).toBeVisible()
+  await page.getByLabel('New password', { exact: true }).fill(NEW_PASSWORD)
+  await page.getByLabel('New password again').fill('something-else')
+  await expect(page.getByText('Those two don’t match.')).toBeVisible()
+  await page.getByLabel('New password again').fill(NEW_PASSWORD)
+  await page.getByRole('button', { name: /save and sign in/i }).click()
+  await expect(page.getByRole('heading', { name: 'How Gauravide is doing' })).toBeVisible()
+
+  // The link is single use.
+  await page.goto(link!)
+  await page.getByLabel('New password', { exact: true }).fill('Another-Password-2026')
+  await page.getByLabel('New password again').fill('Another-Password-2026')
+  await page.getByRole('button', { name: /save and sign in/i }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /expired or was already used/i })).toBeVisible()
+
+  // Change it again from inside, which needs the current password.
+  await page.goto('/admin/password')
+  await page.getByLabel('Current password').fill('not-it')
+  await page.getByLabel('New password', { exact: true }).fill(NEWER_PASSWORD)
+  await page.getByLabel('New password again').fill(NEWER_PASSWORD)
+  await page.getByRole('button', { name: /^change password$/i }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /current password doesn’t match/i })).toBeVisible()
+
+  await page.getByLabel('Current password').fill(NEW_PASSWORD)
+  await page.getByLabel('New password', { exact: true }).fill(NEWER_PASSWORD)
+  await page.getByLabel('New password again').fill(NEWER_PASSWORD)
+  await page.getByRole('button', { name: /^change password$/i }).click()
+  await expect(page.getByText('Password changed')).toBeVisible()
+
+  // The newest password is the one that works.
+  await page.getByRole('link', { name: /back to the dashboard/i }).click()
+  await page.getByRole('button', { name: /^sign out$/i }).click()
+  await page.getByLabel('Username').fill(ADMIN_USERNAME)
+  await page.getByLabel('Password', { exact: true }).fill(ADMIN_PASSWORD)
+  await page.getByRole('button', { name: /^sign in$/i }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /don’t match/ })).toBeVisible()
+  await page.getByLabel('Password', { exact: true }).fill(NEWER_PASSWORD)
+  await page.getByRole('button', { name: /^sign in$/i }).click()
+  await expect(page.getByRole('heading', { name: 'How Gauravide is doing' })).toBeVisible()
+
+  expect(problems).toEqual([])
+})
+
+test('the camera button only appears where there is a camera', async ({ page, isMobile }) => {
+  await page.goto('/new')
+  const camera = page.getByText('Take a photo', { exact: true })
+  if (isMobile) {
+    await expect(camera).toBeVisible()
+  } else {
+    await expect(camera).toHaveCount(0)
+    await expect(page.getByText('Choose a receipt file')).toBeVisible()
+    await expect(page.getByText(/on your phone you can photograph the receipt/i)).toBeVisible()
+  }
+})
+
+test('each step starts at the top, and a lone discount is refused', async ({ page }) => {
+  await page.goto('/new')
+  await page.getByRole('button', { name: 'Type it in' }).click()
+  await page.getByLabel(/item 1 name/i).fill('Snaps')
+  await page.getByLabel(/price of/i).fill('13.00')
+  await page.getByRole('button', { name: /add item/i }).click()
+  await page.getByLabel(/item 2 name/i).fill('Coupon')
+  await page.locator('input[aria-label^="Price of"]').nth(1).fill('-3.00')
+
+  // Scrolled to the bottom of the items step, then moved on.
+  // scrollTo, not mouse.wheel: mobile WebKit has no wheel.
+  await page.evaluate(() => window.scrollTo(0, 2000))
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await page.getByRole('button', { name: /looks right/i }).click()
+  await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
+  expect(await page.evaluate(() => window.scrollY)).toBe(0)
+
+  // A discount given to someone who didn't have the item would owe them money.
+  await page.getByRole('button', { name: /add person/i }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Mayur Sabankar' }).click()
+  await page.getByRole('button', { name: 'Gaurav Basantani, sharing Snaps' }).click()
+  await page.getByRole('button', { name: 'Mayur Sabankar, sharing Coupon' }).click()
+  const next = page.getByRole('button', { name: /next: who paid/i })
+  await expect(next).toBeDisabled()
+  await expect(page.getByText(/owing less than nothing/i)).toBeVisible()
+
+  // Sharing the discount with the item it belongs to fixes it.
+  await page.getByRole('button', { name: 'Mayur Sabankar, sharing Snaps' }).click()
+  await page.getByRole('button', { name: 'Gaurav Basantani, sharing Coupon' }).click()
+  await expect(next).toBeEnabled()
 })

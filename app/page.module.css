@@ -600,3 +600,21 @@
     display: none;
   }
 }
+
+/* ── Wave divider ──────────────────────────────────────────── */
+.wave {
+  display: block;
+  width: 100%;
+  height: clamp(48px, 7vw, 110px);
+  margin-bottom: calc(-1 * var(--space-1));
+}
+
+/* The band the wave pours into, so the shape reads as a surface change. */
+.onSurface {
+  background: var(--surface);
+  border-block: 1px solid var(--border);
+}
+
+.onSurface + .section {
+  padding-top: var(--space-12);
+}

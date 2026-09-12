@@ -96,23 +96,24 @@ export default async function Home({
       {/* ── Hero ─────────────────────────────────────────── */}
       <section className={[styles.hero, 'shell'].join(' ')}>
         <span className={styles.rays} aria-hidden="true" />
-        <span className={styles.pill}>
+        <span className="aurora" aria-hidden="true" />
+        <span className={[styles.pill, 'rise'].join(' ')}>
           <span className={styles.pillDot} aria-hidden="true" />
           Works with your Splitwise account
         </span>
 
-        <h1 className={styles.title}>
+        <h1 className={[styles.title, 'rise', 'rise-1'].join(' ')}>
           Split any receipt
           <br />
           in <span className={styles.accent}>30 seconds</span>
         </h1>
 
-        <p className={styles.tagline}>
+        <p className={[styles.tagline, 'rise', 'rise-2'].join(' ')}>
           Snap the bill, tap who had what, pick who paid. Gauravide adds an exact, itemised expense
           to Splitwise — tax and all.
         </p>
 
-        <div className={styles.actions}>
+        <div className={[styles.actions, 'rise', 'rise-3'].join(' ')}>
           <Link href="/new" className={styles.ctaLink}>
             Split a receipt →
           </Link>
@@ -150,7 +151,7 @@ export default async function Home({
         </p>
 
         {/* ── Product mockup ─────────────────────────────── */}
-        <div className={styles.mockup} role="img" aria-label="Example: a Costco receipt split between Gaurav and Alex, tax matched to each item">
+        <div className={[styles.mockup, 'rise', 'rise-4'].join(' ')} role="img" aria-label="Example: a Costco receipt split between Gaurav and Alex, tax matched to each item">
           <div className={styles.window}>
             <div className={styles.windowBar} aria-hidden="true">
               <span />
@@ -212,8 +213,16 @@ export default async function Home({
         </div>
       </section>
 
+      {/* A wave carries the eye from the hero into the steps. */}
+      <svg className={styles.wave} viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0 64c120-34 240-51 360-38s240 56 360 62 240-26 360-49 240-30 360-21v102H0Z"
+          fill="var(--surface)"
+        />
+      </svg>
+
       {/* ── How it works ──────────────────────────────────── */}
-      <section className={[styles.section, 'shell'].join(' ')} aria-labelledby="steps-title">
+      <section className={[styles.section, styles.onSurface, 'shell'].join(' ')} aria-labelledby="steps-title">
         <div className={styles.sectionHead}>
           <span className={styles.kicker}>How it works</span>
           <h2 id="steps-title" className={styles.sectionTitle}>
@@ -222,7 +231,7 @@ export default async function Home({
         </div>
         <ol className={styles.steps}>
           {STEPS.map((s) => (
-            <li key={s.n} className={styles.step}>
+            <li key={s.n} className={[styles.step, 'lift'].join(' ')}>
               <span className={styles.stepNum} aria-hidden="true">
                 {s.n}
               </span>
@@ -246,7 +255,7 @@ export default async function Home({
         </div>
         <div className={styles.cases}>
           {CASES.map((c) => (
-            <article key={c.title} className={styles.case}>
+            <article key={c.title} className={[styles.case, 'lift'].join(' ')}>
               <span className={styles.caseIcon} aria-hidden="true">
                 {c.icon}
               </span>

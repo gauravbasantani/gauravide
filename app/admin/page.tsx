@@ -133,6 +133,9 @@ export default async function AdminPage({
               </Link>
             ))}
           </nav>
+          <Link href="/admin/password" className={styles.ghost}>
+            Change password
+          </Link>
           <form action="/api/admin/logout" method="post">
             <button type="submit" className={styles.signOut}>
               Sign out
@@ -184,7 +187,7 @@ export default async function AdminPage({
           id="people"
           label="People who used it"
           value={count(m.people.total)}
-          note={`${count(m.people.accounts)} signed in · ${count(m.people.guests)} signed-out browsers`}
+          note={`${count(m.people.accounts)} signed in · ${count(m.people.guests)} signed-out browsers (counted per browser)`}
         />
         <Kpi
           id="scanned"

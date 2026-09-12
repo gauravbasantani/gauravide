@@ -7,6 +7,8 @@ import {
   verifyPassword,
 } from '@/lib/adminCrypto'
 import { computeMetrics, minutesSaved, type EventRow, type SplitRow } from '@/lib/metrics'
+import { hashToken, makeResetToken } from '@/lib/adminStore'
+import { maskEmail } from '@/lib/email'
 import { hashPassword as scriptHash } from '../scripts/admin-password.mjs'
 
 describe('admin password', () => {
@@ -189,5 +191,21 @@ describe('admin metrics', () => {
     expect(m.habits.withPhoto).toBeNull()
     expect(m.daily).toHaveLength(7)
     expect(m.timeSaved.minutes).toBe(0)
+  })
+})
+
+describe('reset links and email addresses', () => {
+  it('stores only a hash of the reset token', () => {
+    const token = makeResetToken()
+    expect(token.length).toBeGreaterThan(30)
+    expect(hashToken(token)).toHaveLength(64)
+    expect(hashToken(token)).not.toContain(token)
+    expect(hashToken(token)).toBe(hashToken(token))
+    expect(hashToken(token)).not.toBe(hashToken(makeResetToken()))
+  })
+
+  it('masks the address it emails', () => {
+    expect(maskEmail('gaurav.inbox29@gmail.com')).toBe('g*************@gmail.com')
+    expect(maskEmail('a@b.com')).toBe('a*@b.com')
   })
 })

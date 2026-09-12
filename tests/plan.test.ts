@@ -520,3 +520,48 @@ describe('editing keeps a discount following its item (FR-42 + FR-39)', () => {
     })
   })
 })
+
+describe('splits that would be wrong or refused (FR-43)', () => {
+  const base = { mode: 'items' as const, people: [A, B], payers: [{ personId: A, cents: 1000 }] }
+
+  it('refuses a share below zero instead of sending it', () => {
+    // B was given only the discount line, so B would "owe" −$3.
+    const plan = planSplit({
+      ...base,
+      items: [
+        { id: 'snaps', name: 'Snaps', cents: 1300, people: [A] },
+        { id: 'disc', name: 'Discount', cents: -300, people: [B] },
+      ],
+      totalCents: 1000,
+    })
+    expect(plan).toMatchObject({ ok: false, problem: 'negative_share', person: B, gap: -300 })
+  })
+
+  it('a $0 or negative total is blocked, not sent', () => {
+    expect(
+      planSplit({ ...base, items: [], totalCents: 0, payers: [{ personId: A, cents: 0 }] }),
+    ).toMatchObject({ ok: false, problem: 'no_total' })
+    expect(
+      planSplit({
+        ...base,
+        items: [{ id: 'refund', name: 'Refund', cents: -500, people: [A] }],
+        totalCents: -500,
+        payers: [{ personId: A, cents: -500 }],
+      }),
+    ).toMatchObject({ ok: false, problem: 'no_total' })
+  })
+
+  it('a discount shared with its item is fine', () => {
+    const plan = ok(
+      planSplit({
+        ...base,
+        items: [
+          { id: 'snaps', name: 'Snaps', cents: 1300, people: [A, B] },
+          { id: 'disc', name: 'Discount', cents: -300, people: [A, B] },
+        ],
+        totalCents: 1000,
+      }),
+    )
+    expect(plan.owed).toEqual({ a: 500, b: 500 })
+  })
+})

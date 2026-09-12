@@ -31,7 +31,16 @@ export function UploadStep({ onExtracted, onManual }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [hasCamera, setHasCamera] = useState(false)
   const previewRef = useRef<string | null>(null)
+
+  // "Take a photo" opens a file picker on a laptop — `capture` only reaches a
+  // camera on phones and tablets. Offering it there tells the user something
+  // untrue about what will happen, so it appears only where it works.
+  useEffect(() => {
+    const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false
+    setHasCamera(touch && Boolean(navigator.mediaDevices?.getUserMedia))
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -218,18 +227,24 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </div>
 
         <div className={styles.actions}>
-          <label className={[styles.primaryAction, styles.fakePrimary].join(' ')}>
-            Take a photo
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="sr-only"
-              onChange={(e) => handleInputChange(e.currentTarget)}
-            />
-          </label>
-          <label className={styles.fakeSecondary}>
-            Choose a file
+          {hasCamera ? (
+            <label className={[styles.primaryAction, styles.fakePrimary].join(' ')}>
+              Take a photo
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => handleInputChange(e.currentTarget)}
+              />
+            </label>
+          ) : null}
+          <label
+            className={[hasCamera ? styles.fakeSecondary : styles.fakePrimary, hasCamera ? '' : styles.primaryAction]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {hasCamera ? 'Choose a file' : 'Choose a receipt file'}
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
@@ -243,8 +258,10 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </div>
 
         <p className={styles.hint}>
-          You can also drag an image here, or paste one with ⌘V. Photos are stripped of location
-          data before they leave your device.
+          {hasCamera
+            ? 'You can also drag an image here, or paste one. '
+            : 'Drag an image here, or paste one with ⌘V. On your phone you can photograph the receipt instead. '}
+          Photos are stripped of location data before they leave your device.
         </p>
       </div>
 

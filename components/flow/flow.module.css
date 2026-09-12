@@ -416,3 +416,16 @@
   font-size: var(--text-caption);
   color: var(--text-muted);
 }
+
+/* Each step arrives rather than blinking into place. */
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.card,
+.progress {
+  animation: stepIn 320ms var(--ease-out) both;
+}

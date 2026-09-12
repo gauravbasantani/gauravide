@@ -33,6 +33,7 @@ function reset() {
     ],
     expenses: new Map(),
     calls: [],
+    emails: [],
     nextExpenseId: 5000,
     nextGroupId: 7000,
     clock: Date.parse('2026-09-12T10:00:00Z'),
@@ -274,8 +275,18 @@ http
           objects: [...state.objects.keys()],
           expenses: [...state.expenses.values()],
           groups: state.groups,
+          emails: state.emails,
           calls: state.calls.map((c) => c.route),
         })
+      }
+      // Stand-in for Resend, so the reset-email flow can be tested end to end.
+      if (url.pathname === '/emails' && req.method === 'POST') {
+        if (!String(req.headers.authorization ?? '').startsWith('Bearer ')) {
+          return send(res, 401, { message: 'no key' })
+        }
+        const body = JSON.parse((await readBody(req)).toString() || '{}')
+        state.emails.push({ to: body.to, subject: body.subject, text: body.text })
+        return send(res, 200, { id: 'email_' + state.emails.length })
       }
       if (url.pathname.startsWith('/rest/v1/')) return await postgrest(req, res, url)
       if (url.pathname.startsWith('/storage/v1/')) return await storage(req, res, url)

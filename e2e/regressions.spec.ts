@@ -9,6 +9,9 @@ async function reachAssignStep(page: Page) {
   await page.getByLabel(/price of/i).fill('24.00')
   await page.getByRole('button', { name: /looks right/i }).click()
   await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
+  // Signed out, adding names is behind this disclosure (Splitwise comes first).
+  const disclosure = page.getByText('Split without signing in')
+  if (await disclosure.isVisible().catch(() => false)) await disclosure.click()
 }
 
 /**
@@ -20,7 +23,7 @@ test('AUDIT: typing in the Add-person sheet does not lose focus', async ({ page 
   // The Sheet effect re-ran on every parent render because callers pass an
   // inline onClose. Every keystroke yanked focus out of the dialog.
   await reachAssignStep(page)
-  await page.getByRole('button', { name: /add person/i }).click()
+  await page.getByRole('button', { name: /add (a name|person)/i }).click()
 
   const field = page.getByLabel(/^name$/i)
   await field.click()
@@ -62,7 +65,7 @@ test('AUDIT: Escape closes the sheet and returns focus to its trigger', async ({
 
   await reachAssignStep(page)
 
-  const trigger = page.getByRole('button', { name: /add person/i })
+  const trigger = page.getByRole('button', { name: /add (a name|person)/i })
   await trigger.click()
   await expect(page.getByRole('dialog')).toBeVisible()
 
@@ -74,7 +77,7 @@ test('AUDIT: Escape closes the sheet and returns focus to its trigger', async ({
 test('AUDIT: Cancel closes the sheet on any device', async ({ page }) => {
   await reachAssignStep(page)
 
-  await page.getByRole('button', { name: /add person/i }).click()
+  await page.getByRole('button', { name: /add (a name|person)/i }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
 
   await page.getByRole('button', { name: /^cancel$/i }).click()

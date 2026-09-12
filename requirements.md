@@ -1430,3 +1430,41 @@ The build is done when all of these are true:
 | Splitwise rejects share sums | Submit fails | Integer cents + largest-remainder (FR-18); test explicitly |
 | 3 hours runs out | Half an app | Build in M1→M6 order; each step leaves a working app |
 | HEIC decoding (iPhone photos) | Common format fails | Verify the vision provider accepts HEIC; else convert or restrict and say so in the picker |
+
+### Admin account, reset by email, and split guards (added 2026-09-12, fifth pass)
+
+*Gaurav: "why sign in with Splitwise — can anyone log in? If I forget the password, how do I
+change it? … while splitting, what edge cases fail or falsify? … on desktop 'Take a photo' opens
+an upload — what should it be? … on mobile, tapping Next doesn't go back to the top."*
+
+- **SEC-26b** **The password lives where the app can change it.** `ADMIN_PASSWORD_HASH` is the
+  starting value only — the app cannot rewrite its own environment. Current credentials are a
+  small private JSON object in Supabase Storage (`app-config/admin/credentials.json`), written
+  by the server only, holding a scrypt hash and never a password.
+- **SEC-26c** **Forgot password.** `/admin/forgot` emails a one-time link (30 minutes, single
+  use, stored only as a SHA-256 hash) to `ADMIN_EMAIL`, via Resend (`RESEND_API_KEY`). The
+  address is masked in the UI. Without an email key the page gives the offline route instead
+  (`npm run admin:password` → update the Vercel variable), never a dead end. 3 requests per
+  network per hour.
+- **SEC-26d** **Change password** at `/admin/password` needs the current password even when
+  already signed in, so a borrowed laptop cannot take the account over.
+- **SEC-26e** The Splitwise sign-in link was removed from the admin page: `ADMIN_USER_IDS` is
+  empty on the deployed site, so it could only confuse. The allowlist still works if ever set.
+- **FR-43** **Splits that would be wrong are refused, not sent.** `planSplit()` blocks a share
+  below zero (naming the person — it happens when a discount is given to someone who didn't
+  have the item it discounts) and a total of zero or less. Both were previously only caught by
+  Splitwise, after the user had finished.
+- **FR-44** **The camera button appears only where a camera exists** (coarse pointer + media
+  devices). On a laptop "Take a photo" opened a file picker, which told the user something
+  untrue; there the primary action is "Choose a receipt file", with a line about photographing
+  it on a phone.
+- **FR-45** **Every step starts at its own top.** With the sticky CTA on a phone, moving on left
+  people mid-screen.
+- **FR-46** **Signed out, the people step leads with Splitwise sign-in**; splitting by typed
+  names is a deliberate second choice ("Split without signing in") that states its limit. Signed
+  in, the add-person sheet keeps friends first and adds "Not in your friends list yet?" above
+  the email invite.
+- **VIS-9** Depth and motion: drifting gradient blobs (`.aurora`), a wave divider into the
+  first band, rise-in entrances and hover lift — hand-written CSS and inline SVG only (no
+  animation library, no external image service), and all of it still under the app's
+  reduced-motion rule.
