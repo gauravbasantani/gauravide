@@ -1,0 +1,36 @@
+{
+  "_source": "Real Costco receipt, Tempe #436, photographed 2026-09-04.",
+  "_whyThisOne": [
+    "Two tax rates on one receipt: A at 8.1%, E at 1.8% (FR-16c)",
+    "Per-line tax flags printed on the receipt (FR-16)",
+    "A negative line: -3.00 instant savings (ACC-8)",
+    "The same item twice: KSWTR40PK x2 (FR-12a)",
+    "8 printed lines but 'ITEMS SOLD = 7' — the discount is not an item",
+    "Verified: items sum to subtotal, flag-based tax reproduces both tax lines exactly"
+  ],
+  "merchant": "Costco Wholesale",
+  "location": "Tempe #436",
+  "date": "2026-09-04",
+  "currency": "USD",
+  "items": [
+    { "code": "512599", "name": "KS TOWEL", "qty": 1, "cents": 2079, "taxFlag": "A" },
+    { "code": "6262016", "name": "KS BATH", "qty": 1, "cents": 2099, "taxFlag": "A" },
+    { "code": "1644153", "name": "HVST SNAPS", "qty": 1, "cents": 859, "taxFlag": "E" },
+    { "code": "0000389361", "name": "/ SNAPS (instant savings)", "qty": 1, "cents": -300, "taxFlag": "E" },
+    { "code": "1938066", "name": "FLASHLIGHT", "qty": 1, "cents": 2699, "taxFlag": "A" },
+    { "code": "1943119", "name": "BUILT VRTY", "qty": 1, "cents": 1999, "taxFlag": "E" },
+    { "code": "782796", "name": "KSWTR40PK", "qty": 1, "cents": 399, "taxFlag": "E" },
+    { "code": "782796", "name": "KSWTR40PK", "qty": 1, "cents": 399, "taxFlag": "E" }
+  ],
+  "taxLines": [
+    { "flag": "A", "rate": 0.081, "cents": 557 },
+    { "flag": "E", "rate": 0.018, "cents": 60 }
+  ],
+  "subtotalCents": 10233,
+  "taxCents": 617,
+  "tipCents": 0,
+  "feeCents": 0,
+  "totalCents": 10850,
+  "itemsSold": 7,
+  "instantSavingsCents": 300
+}

@@ -1,0 +1,104 @@
+/**
+ * Money — integer cents only (ACC-2).
+ *
+ * This module imports nothing. No React, no Next, no network. It is the one
+ * place arithmetic on money happens, so it can be tested exhaustively in
+ * milliseconds (ARCHITECTURE.md §3.3).
+ *
+ * Floats are never used: 0.1 + 0.2 !== 0.3, and a receipt that fails to
+ * balance by a cent is refused at submit (ACC-3).
+ */
+
+export type Cents = number
+
+/** A parsed money value, or a reason it could not be parsed. */
+export type ParseResult = { ok: true; cents: Cents } | { ok: false; reason: string }
+
+/**
+ * Parse a money string to integer cents.
+ *
+ * Handles both conventions, because getting this wrong is a 100x error
+ * (GAP-16): "1,234.56" is US, "1.234,56" is European. The separator that
+ * appears LAST is the decimal separator.
+ */
+export function parseMoney(input: string): ParseResult {
+  const raw = input.trim()
+  if (raw === '') return { ok: false, reason: 'empty' }
+
+  // Costco prints negatives as a trailing minus: "3.00-"
+  const negative = /^-/.test(raw) || /-\s*$/.test(raw)
+  let s = raw.replace(/[^0-9.,]/g, '')
+  if (s === '') return { ok: false, reason: 'no digits' }
+
+  const lastComma = s.lastIndexOf(',')
+  const lastDot = s.lastIndexOf('.')
+
+  if (lastComma !== -1 && lastDot !== -1) {
+    // Both present: the later one is the decimal separator.
+    const decimalIsComma = lastComma > lastDot
+    s = decimalIsComma ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '')
+  } else if (lastComma !== -1) {
+    // Only commas. Two trailing digits means a decimal comma; otherwise grouping.
+    const after = s.length - lastComma - 1
+    s = after === 2 ? s.replace(',', '.') : s.replace(/,/g, '')
+  }
+
+  if (!/^\d*\.?\d*$/.test(s)) return { ok: false, reason: 'malformed' }
+
+  const [whole = '0', frac = ''] = s.split('.')
+  if (frac.length > 2) return { ok: false, reason: 'too many decimal places' }
+
+  const cents = Number(whole) * 100 + Number(frac.padEnd(2, '0'))
+  if (!Number.isFinite(cents)) return { ok: false, reason: 'not a number' }
+
+  return { ok: true, cents: negative ? -cents : cents }
+}
+
+/** Format cents for display. Always shows a currency symbol (UX-21). */
+export function formatMoney(cents: Cents, currency = 'USD', locale = 'en-US'): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(cents / 100)
+}
+
+export function sum(values: readonly Cents[]): Cents {
+  return values.reduce((a, b) => a + b, 0)
+}
+
+/**
+ * Split `total` across `weights` so the parts sum to `total` EXACTLY.
+ *
+ * Largest-remainder: give everyone their floor, then hand the leftover cents
+ * to whoever was rounded down hardest. Ties break by index, so the same input
+ * always produces the same output (ACC-9).
+ *
+ * Splitwise rejects an expense whose shares do not sum to the cost, so this
+ * guarantee is not a nicety — it is the difference between submitting and not.
+ */
+export function allocate(total: Cents, weights: readonly number[]): Cents[] {
+  const n = weights.length
+  if (n === 0) return []
+
+  const weightTotal = weights.reduce((a, b) => a + b, 0)
+
+  // No weight to go on (e.g. a $0 subtotal): split as evenly as possible.
+  if (weightTotal <= 0) return allocate(total, new Array<number>(n).fill(1))
+
+  const exact = weights.map((w) => (total * w) / weightTotal)
+  const floors = exact.map((v) => Math.floor(v))
+  let remainder = total - floors.reduce((a, b) => a + b, 0)
+
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i)
+
+  const out = [...floors]
+  // `remainder` can be negative when `total` is (a refund); step toward zero.
+  const step = remainder >= 0 ? 1 : -1
+  for (let k = 0; remainder !== 0; k++) {
+    const target = order[k % n]
+    if (!target) break
+    out[target.i] = (out[target.i] ?? 0) + step
+    remainder -= step
+  }
+
+  return out
+}
