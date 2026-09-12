@@ -6,7 +6,7 @@
 import { formatMoney } from '@/lib/money'
 import { itemKey, type ExtractedReceipt } from '@/lib/receipt'
 import { planSplit, type Item, type Payment, type Plan, type SplitMode } from '@/lib/split'
-import type { Person, SplitSettings } from '@/lib/draft'
+import type { ItemSplit, Person, SplitSettings } from '@/lib/draft'
 
 export function receiptTotal(receipt: ExtractedReceipt): number {
   return (
@@ -21,15 +21,18 @@ export function receiptTotal(receipt: ExtractedReceipt): number {
 export function planItems(
   receipt: ExtractedReceipt,
   assignments: Record<string, string[]>,
+  itemSplits: Record<string, ItemSplit> = {},
 ): Item[] {
   return receipt.items.map((item, i) => {
     const id = itemKey(item, i)
+    const split = itemSplits[id]
     return {
       id,
       name: item.name || `Item ${i + 1}`,
       cents: item.cents,
       ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
       people: assignments[id] ?? [],
+      ...(split ? { split } : {}),
     }
   })
 }
@@ -65,7 +68,7 @@ export function buildPlan(
 ): Plan {
   return planSplit({
     mode: settings.mode,
-    items: planItems(receipt, assignments),
+    items: planItems(receipt, assignments, settings.itemSplits),
     people: people.map((p) => p.id),
     included: includedIds(settings, people),
     weights: filledWeights(settings, people),
@@ -95,6 +98,10 @@ export function problemText(plan: Plan, currency: string): string | undefined {
       return gap > 0
         ? `The items are ${fmt(gap)} short of the receipt total — go back and check the amounts`
         : `The items are ${fmt(gap)} more than the receipt total — go back and check the amounts`
+    case 'item_exact_mismatch':
+      return gap > 0
+        ? `One item’s amounts are ${fmt(gap)} short — tap “Edit split” on it`
+        : `One item’s amounts are ${fmt(gap)} over — tap “Edit split” on it`
     case 'nobody_included':
       return 'Tick at least one person to split with'
     case 'no_shares':

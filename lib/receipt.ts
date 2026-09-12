@@ -93,6 +93,33 @@ export function withItemIds(receipt: ExtractedReceipt, makeId: () => string): Ex
   return { ...receipt, items: receipt.items.map((item) => (item.id ? item : { ...item, id: makeId() })) }
 }
 
+/**
+ * Register lines carry noise people don't recognise: "512599 **KS TOWEL**",
+ * "0000389361 / SNAPS". Drop leading item numbers and decoration; keep the words.
+ */
+export function cleanItemName(name: string): string {
+  const cleaned = name
+    .replace(/^\s*\d{4,}\s*/, '')
+    .replace(/^[\s/*#-]+/, '')
+    .replace(/\*+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return cleaned || name.trim()
+}
+
+/** Make extracted lines readable before anyone sees them — these names go to Splitwise. */
+export function tidyReceipt(receipt: ExtractedReceipt): ExtractedReceipt {
+  return {
+    ...receipt,
+    items: receipt.items.map((item) => {
+      const name = cleanItemName(item.name)
+      const discount =
+        item.cents < 0 && name !== '' && !/discount|saving|coupon|promo|\boff\b/i.test(name)
+      return { ...item, name: (discount ? `Discount · ${name}` : name).slice(0, 120) }
+    }),
+  }
+}
+
 /** The id assignments are keyed by. Falls back to position for legacy rows. */
 export const itemKey = (item: Pick<ExtractedItem, 'id'>, index: number): string =>
   item.id ?? String(index)

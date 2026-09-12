@@ -4,7 +4,14 @@ import { getSession, ownerId } from '@/lib/session'
 import { createExpense, SplitwiseError } from '@/lib/splitwise'
 import { planSplit, type Item } from '@/lib/split'
 import { rateLimit } from '@/lib/ratelimit'
-import { dbConfigured, findOwnedByDataField, insert } from '@/lib/db'
+import {
+  dbConfigured,
+  findOwnedByDataField,
+  insert,
+  insertReturning,
+  selectOneOwned,
+  updateOwned,
+} from '@/lib/db'
 import type { StoredSplit } from '@/lib/history'
 
 export const runtime = 'nodejs'
@@ -38,17 +45,23 @@ const Body = z.object({
         cents: Cents,
         taxFlag: z.string().max(3).optional(),
         people: z.array(UserId).max(50),
+        /** An uneven split of this one line (FR-32). */
+        split: z
+          .object({ kind: z.enum(['shares', 'exact']), values: z.record(IdKey, Cents) })
+          .optional(),
       }),
     )
     .max(400),
   people: z.array(z.object({ id: UserId, name: z.string().min(1).max(120) })).min(1).max(50),
   /** Guards against a double tap, a refresh, or a retry creating two expenses (FR-22). */
   idempotencyKey: z.string().uuid(),
+  /** Present when editing a saved split: update its Splitwise expense in place (FR-39). */
+  edit: z.object({ splitId: z.string().uuid() }).optional(),
 })
 
 // Fast path for a double tap on the same instance. The database lookup below
 // is what holds across serverless instances.
-const recent = new Map<string, { id: number; at: number }>()
+const recent = new Map<string, { id: number; splitId: string | null; at: number }>()
 const RECENT_MS = 5 * 60_000
 
 const fail = (status: number, error: string, message: string) =>
@@ -66,27 +79,53 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(400, 'invalid', 'Something about that split looked wrong.')
   const input = parsed.data
 
-  // Idempotency: the same key returns the same expense, never a second one.
-  const now = Date.now()
-  for (const [key, entry] of recent) if (now - entry.at > RECENT_MS) recent.delete(key)
-  const memoKey = `${owner}:${input.idempotencyKey}`
-  const seen = recent.get(memoKey)
-  if (seen) return NextResponse.json({ id: seen.id, deduplicated: true, historySaved: true })
-  if (dbConfigured) {
+  // Editing: the saved split must be this person's, and must have an expense.
+  let editing: StoredSplit | null = null
+  if (input.edit) {
+    if (!dbConfigured) {
+      return fail(503, 'history_unavailable', 'Editing needs your saved splits, which are unavailable right now.')
+    }
     try {
-      const existing = await findOwnedByDataField<StoredSplit>(
-        'splits',
-        owner,
-        'idempotencyKey',
-        input.idempotencyKey,
-      )
-      const existingId = Number(existing?.expense_ids[0])
-      if (existingId) {
-        return NextResponse.json({ id: existingId, deduplicated: true, historySaved: true })
-      }
+      editing = await selectOneOwned<StoredSplit>('splits', owner, input.edit.splitId)
     } catch {
-      // History outage: fall through. The in-memory guard still covers a double tap.
-      console.error('[expense] idempotency lookup failed')
+      return fail(502, 'history_unavailable', 'Couldn’t load that saved split. Try again.')
+    }
+    if (!editing || !Number(editing.expense_ids[0])) {
+      return fail(404, 'not_found', 'That saved split was not found.')
+    }
+  }
+
+  // Idempotency: the same key returns the same expense, never a second one.
+  // An edit updates in place, so repeating it is harmless and skips this.
+  const memoKey = `${owner}:${input.idempotencyKey}`
+  if (!editing) {
+    const now = Date.now()
+    for (const [key, entry] of recent) if (now - entry.at > RECENT_MS) recent.delete(key)
+    const seen = recent.get(memoKey)
+    if (seen) {
+      return NextResponse.json({ id: seen.id, splitId: seen.splitId, deduplicated: true, historySaved: true })
+    }
+    if (dbConfigured) {
+      try {
+        const existing = await findOwnedByDataField<StoredSplit>(
+          'splits',
+          owner,
+          'idempotencyKey',
+          input.idempotencyKey,
+        )
+        const existingId = Number(existing?.expense_ids[0])
+        if (existing && existingId) {
+          return NextResponse.json({
+            id: existingId,
+            splitId: existing.id,
+            deduplicated: true,
+            historySaved: true,
+          })
+        }
+      } catch {
+        // History outage: fall through. The in-memory guard still covers a double tap.
+        console.error('[expense] idempotency lookup failed')
+      }
     }
   }
 
@@ -117,6 +156,7 @@ export async function POST(req: Request) {
     cents: item.cents,
     ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
     people: item.people.map(String),
+    ...(item.split ? { split: item.split } : {}),
   }))
 
   const plan = planSplit({
@@ -146,6 +186,7 @@ export async function POST(req: Request) {
     }
     const messages: Record<string, string> = {
       unassigned: 'Some items still need someone.',
+      item_exact_mismatch: 'One item’s exact amounts don’t add up to its price.',
       no_people: 'Add at least one person.',
       nobody_included: 'Choose at least one person to split with.',
       no_shares: 'Give at least one person a share.',
@@ -172,43 +213,59 @@ export async function POST(req: Request) {
         paidCents: plan.paid[userId] ?? 0,
         owedCents: plan.owed[userId] ?? 0,
       })),
+      ...(editing ? { expenseId: Number(editing.expense_ids[0]) } : {}),
     })
 
-    recent.set(memoKey, { id, at: Date.now() })
+    const data = {
+      merchant: input.merchant,
+      date: input.date,
+      currency: input.currency,
+      totalCents: input.totalCents,
+      taxCents: input.taxCents,
+      tipCents: input.tipCents,
+      feeCents: input.feeCents,
+      items: input.items,
+      people: input.people.filter((p) => plan.participants.includes(String(p.id))),
+      payerId: primaryPayer,
+      groupId: input.groupId,
+      groupName: input.groupName,
+      status: 'in_splitwise',
+      mode: input.mode,
+      owed: plan.owed,
+      paid: plan.paid,
+      idempotencyKey: input.idempotencyKey,
+      // Everything needed to reopen it exactly for an edit (FR-39).
+      taxLines: input.taxLines,
+      included: input.included ?? null,
+      weights: input.weights,
+      exact: input.exact,
+    }
+
+    let splitId: string | null = editing?.id ?? null
+    if (!editing) recent.set(memoKey, { id, splitId: null, at: Date.now() })
     let historySaved = false
     if (dbConfigured) {
       try {
-        await insert('splits', {
-          owner_id: owner,
-          data: {
-            merchant: input.merchant,
-            date: input.date,
-            currency: input.currency,
-            totalCents: input.totalCents,
-            taxCents: input.taxCents,
-            tipCents: input.tipCents,
-            feeCents: input.feeCents,
-            items: input.items,
-            people: input.people.filter((p) => plan.participants.includes(String(p.id))),
-            payerId: primaryPayer,
-            groupId: input.groupId,
-            groupName: input.groupName,
-            status: 'in_splitwise',
-            mode: input.mode,
-            owed: plan.owed,
-            paid: plan.paid,
-            idempotencyKey: input.idempotencyKey,
-          },
-          expense_ids: [String(id)],
-        })
+        if (editing) {
+          await updateOwned('splits', owner, editing.id, { data })
+        } else {
+          const row = await insertReturning<{ id: string }>('splits', {
+            owner_id: owner,
+            data,
+            expense_ids: [String(id)],
+          })
+          splitId = row.id
+          recent.set(memoKey, { id, splitId, at: Date.now() })
+        }
         await insert('events', {
           user_key: owner,
-          name: 'split_submitted',
+          name: editing ? 'split_edited' : 'split_submitted',
           props: {
             source: 'splitwise',
             group: input.groupId === 0 ? 'none' : 'group',
             mode: input.mode,
             payers: payers.length > 1 ? 'several' : 'one',
+            item_splits: input.items.some((item) => item.split) ? 'yes' : 'no',
           },
         })
         historySaved = true
@@ -218,7 +275,7 @@ export async function POST(req: Request) {
         console.error('[expense] history save failed')
       }
     }
-    return NextResponse.json({ id, historySaved })
+    return NextResponse.json({ id, splitId, historySaved, edited: Boolean(editing) })
   } catch (err) {
     if (err instanceof SplitwiseError && err.needsReauth) {
       return fail(
@@ -231,7 +288,7 @@ export async function POST(req: Request) {
       return fail(422, 'splitwise_refused', `Splitwise didn’t accept it: ${err.refusal}`)
     }
     const detail = err instanceof SplitwiseError ? `${err.status}` : 'unknown'
-    console.error(`[expense] create failed: ${detail}`)
+    console.error(`[expense] ${editing ? 'update' : 'create'} failed: ${detail}`)
     return fail(502, 'splitwise_failed', 'Couldn’t reach Splitwise. Your split is still here — try again.')
   }
 }

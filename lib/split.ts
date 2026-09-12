@@ -18,6 +18,30 @@ export type Item = {
   taxFlag?: string
   /** Explicit taxability, when the receipt states it without a flag. */
   taxable?: boolean
+  /**
+   * An uneven split of this one line (FR-32). Absent = even among `people`.
+   * shares: whole-number weights. exact: cents per person, summing to `cents`.
+   */
+  split?: { kind: 'shares' | 'exact'; values: Readonly<Record<PersonId, number>> }
+}
+
+/** How one line's cost divides among its people, to the cent. */
+export function itemParts(item: Item): Cents[] {
+  const values = item.split?.values ?? {}
+  if (item.split?.kind === 'exact') return item.people.map((p) => Math.trunc(values[p] ?? 0))
+  if (item.split?.kind === 'shares') {
+    return allocate(
+      item.cents,
+      item.people.map((p) => Math.max(0, Math.floor(values[p] ?? 0))),
+    )
+  }
+  return allocate(item.cents, item.people.map(() => 1))
+}
+
+/** For an exact per-item split: cents still unaccounted for. 0 otherwise. */
+export function itemSplitGap(item: Item): Cents {
+  if (item.split?.kind !== 'exact') return 0
+  return item.cents - sum(itemParts(item))
 }
 
 export type TaxLine = { flag: string; cents: Cents }
@@ -99,7 +123,7 @@ export function computeSplit(input: SplitInput): SplitResult {
       unassignedItemIds.push(item.id)
       continue
     }
-    const parts = allocate(item.cents, item.people.map(() => 1))
+    const parts = itemParts(item)
     addInto(itemSubtotals, item.people, parts)
     addInto(shares, item.people, parts)
   }
@@ -117,7 +141,7 @@ export function computeSplit(input: SplitInput): SplitResult {
       const base = empty(people)
       for (const item of items) {
         if (item.taxFlag !== line.flag || item.people.length === 0) continue
-        addInto(base, item.people, allocate(item.cents, item.people.map(() => 1)))
+        addInto(base, item.people, itemParts(item))
       }
       const weights = people.map((p) => Math.max(0, base[p] ?? 0))
       addInto(shares, people, allocate(line.cents, weights))
@@ -130,7 +154,7 @@ export function computeSplit(input: SplitInput): SplitResult {
     for (const item of items) {
       if (item.people.length === 0) continue
       if (taxMethod === 'by-taxable-subtotal' && !isTaxable(item, taxedFlags)) continue
-      addInto(base, item.people, allocate(item.cents, item.people.map(() => 1)))
+      addInto(base, item.people, itemParts(item))
     }
     let weights = people.map((p) => Math.max(0, base[p] ?? 0))
     // Everything exempt but tax was charged: fall back to overall share.
@@ -190,6 +214,7 @@ export type PlanProblem =
   | 'no_people'
   | 'unassigned'
   | 'items_mismatch'
+  | 'item_exact_mismatch'
   | 'nobody_included'
   | 'no_shares'
   | 'exact_mismatch'
@@ -230,6 +255,15 @@ export function planSplit(input: PlanInput): Plan {
   let taxMethod: TaxMethod | null = null
 
   if (input.mode === 'items') {
+    const uneven = input.items.find((item) => item.people.length > 0 && itemSplitGap(item) !== 0)
+    if (uneven) {
+      return {
+        ok: false,
+        problem: 'item_exact_mismatch',
+        gap: itemSplitGap(uneven),
+        unassignedItemIds: [uneven.id],
+      }
+    }
     const r = computeSplit(input)
     if (r.unassignedItemIds.length > 0) {
       return { ok: false, problem: 'unassigned', unassignedItemIds: r.unassignedItemIds }

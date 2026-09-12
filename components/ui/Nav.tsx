@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { getSession } from '@/lib/session'
 import { isAdmin } from '@/lib/admin'
 import { ownerId } from '@/lib/session'
@@ -13,10 +14,17 @@ export async function Nav() {
     <header className={styles.nav}>
       <nav className={styles.inner} aria-label="Main">
         <Link href="/" className={styles.brand}>
-          <span className={styles.mark} aria-hidden="true">
-            G
+          <Image
+            className={styles.mark}
+            src="/icon.png"
+            alt=""
+            width={30}
+            height={30}
+            priority
+          />
+          <span className={styles.wordmark}>
+            Gaurav<span className={styles.wordmarkAccent}>ide</span>
           </span>
-          Gauravide
         </Link>
 
         <span className={styles.spacer} />

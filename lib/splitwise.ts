@@ -217,6 +217,11 @@ export async function createExpense(
     currency?: string
     groupId: number
     shares: ExpenseShare[]
+    /**
+     * Present = update that expense in place (`update_expense`). Supplying
+     * users replaces every share on it, which is exactly what an edit means.
+     */
+    expenseId?: number
   },
 ): Promise<{ id: number }> {
   const sumPaid = input.shares.reduce((a, s) => a + s.paidCents, 0)
@@ -245,7 +250,7 @@ export async function createExpense(
 
   const body = await call<{ expenses?: { id: number }[]; errors?: unknown }>(
     token,
-    'create_expense',
+    input.expenseId ? 'update_expense/' + input.expenseId : 'create_expense',
     {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },

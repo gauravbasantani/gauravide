@@ -439,6 +439,64 @@ receipt; same structure as Splitwise: paid by who, divide equally, etc."*
   signed in, you are added automatically and pre-selected as payer. Removing a person removes
   them from items, shares, exact amounts and payers.
 
+### Per-item splits, outside payers, groups (added 2026-09-12, second pass)
+
+*Raised by Gaurav from live screenshots: "what about the individual item split? paid by who — me
+or someone else from Splitwise? if I want to create a new group — make good decisions, cool UI,
+add copy where needed, easy to use and understandable."*
+
+- **FR-32** **Split one item unevenly.** Every line on the split screen has "Split unevenly",
+  opening a sheet: *Equally* (tick who had it), *By shares* (2 : 1), or *Exact* (amounts that
+  must add to the line price, remaining shown live). The line shows a chip such as
+  "Gaurav ×2 · Alex ×1". Tapping faces on that line afterwards returns it to an even split. The
+  line's tax follows the same weights (`itemParts()` in `lib/split.ts`).
+- **FR-32a** Quantity lines can also be split into units from that sheet ("Split into 4 lines");
+  each new unit starts with whoever had the whole line.
+- **FR-33** **Someone else paid.** "Who paid?" lists people in the split plus "Someone else
+  paid", a search over Splitwise friends. The chosen friend is added to the expense as payer and
+  owes nothing unless given items (they are excluded from Equally and get 0 shares).
+- **FR-34** **Groups picker.** A compact radio list: best matches first with member count and
+  who is missing, a "Best match" badge, top 3 then "Show N more", then *No group*, then
+  *Create a new group* (always available, not only when someone is missing) with a pre-filled
+  name and "With Gaurav, Maya" copy.
+- **FR-35** **Readable item names.** Register numbers and decoration are stripped on arrival
+  ("512599 \*\*KS TOWEL\*\*" → "KS TOWEL"); a bare negative line becomes "Discount · SNAPS".
+- **FR-36** **Review screen** is three numbered sections (Where and when · Items · Tax, tip and
+  fees), each with one line of why; item rows are name + chips | price | remove; the totals
+  panel states whether it adds up to the receipt.
+- **FR-37** **Running totals while incomplete** show item amounts only, labelled "So far". Tax is
+  not spread across people who have no items yet (the screenshot showed $3.09 before any tap).
+
+### Saved split page, photo, editing, sign-in (added 2026-09-12, third pass)
+
+*Raised by Gaurav: "after review, when adding people, a button to sign in to Splitwise to add
+people — easier. After sending, the receipt is on the dashboard; opening the split shows the
+receipt photo, who paid whom, the items below with who split them, and I can edit that
+transaction."*
+
+- **FR-38** **Receipt photo kept with the saved split.** The prepared (EXIF-stripped) photo is
+  held in IndexedDB during the flow — it survives a refresh and the sign-in round trip — and
+  uploaded after Splitwise accepts the expense to a **private** Supabase Storage bucket
+  (`receipts`, created on first use) at `<owner>/<splitId>.<ext>`. It is served only through
+  `GET /api/splits/[id]/image` after an ownership check; JPEG metadata is stripped again
+  server-side; PDFs are not kept. Removing the dashboard copy removes the photo.
+- **FR-39** **Edit a saved split.** "Edit split" on the split page rebuilds the draft
+  (`draftFromSplit`) and reopens the flow at *Check the items* with an "Editing …" banner.
+  Everything is editable — items, people, per-item splits, who paid, group. Saving calls
+  Splitwise `update_expense/{id}` (which replaces all shares) and updates the same row, so
+  nothing is duplicated. The group it lives in stays selected. Split settings (tax lines,
+  included, shares, exact amounts) are stored from now on so an edit reopens exactly; older
+  equal/shares rows reopen as exact amounts, which reproduces what was sent to the cent.
+- **FR-40** **Sign in from the people step.** Signed out, step 3 leads with "Sign in with
+  Splitwise to add friends" (returns to `/new`, draft restored). Names typed before signing in
+  show a **Link** button to pick the matching Splitwise friend; every item, share, exact amount
+  and payment moves to the friend.
+- **FR-41** **Split page layout.** Summary (merchant, date, group, mode, paid by, you lent /
+  borrowed) · receipt photo beside *Who paid* and *Who owes what* with settle-up transfers on
+  desktop, stacked on phones · every item with avatars and how it was shared ("You · Alex ·
+  $6.00 each", "You ×2 · Alex ×1") · Edit split / Open in Splitwise at the top · archive and
+  delete below. Rows with a photo show 📷 on the dashboard.
+
 ### Gaps closed by the 2026-09-12 review
 
 - **GAP-24** Assignments were keyed by row position; removing or splitting a row after

@@ -1,6 +1,14 @@
+.picker {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .list {
   display: grid;
-  gap: var(--space-2);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 .option {
@@ -8,54 +16,184 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
+  min-height: 64px;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-interactive);
-  border-radius: var(--radius-md);
+  border: 0;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  min-height: 44px;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.option:last-child {
+  border-bottom: 0;
+}
+
+.option:hover {
+  background: var(--bg-subtle);
 }
 
 .option[aria-pressed='true'] {
-  border-color: var(--primary);
   background: var(--primary-subtle);
 }
 
-.optionMain {
-  flex: 1;
-  min-width: 0;
+.radio {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-interactive);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
+
+.option[aria-pressed='true'] .radio {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.tile {
   display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--person-on);
+  font-weight: 700;
+}
+
+.tileNeutral {
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.optionMain {
+  display: grid;
+  flex: 1;
   gap: 2px;
+  min-width: 0;
 }
 
 .name {
-  font-weight: 600;
   overflow: hidden;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .gap {
-  font-size: var(--text-caption);
   color: var(--text-muted);
+  font-size: var(--text-caption);
 }
 
 .match {
-  font-size: var(--text-caption);
-  font-weight: 600;
   color: var(--success-text);
+  font-size: var(--text-caption);
+  font-weight: 500;
 }
 
-.resolve {
-  margin-top: var(--space-3);
-  padding: var(--space-4);
+.badge {
+  flex: 0 0 auto;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--success-subtle);
+  color: var(--success-text);
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+
+.more {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.more:hover {
+  background: var(--primary-subtle);
+}
+
+.createToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px dashed var(--border-interactive);
   border-radius: var(--radius-md);
-  background: var(--warning-subtle);
-  border: 1px solid var(--warning-fill);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.createToggle:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.plus {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--primary-subtle);
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.createText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.createText small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.create {
   display: grid;
   gap: var(--space-3);
-  font-size: var(--text-meta);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.createActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.error {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-caption);
+}
+
+@media (max-width: 480px) {
+  .badge {
+    display: none;
+  }
 }

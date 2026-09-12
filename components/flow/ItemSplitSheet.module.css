@@ -1,0 +1,145 @@
+.units {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--secondary-strong) 30%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--secondary-subtle);
+  font-size: var(--text-meta);
+}
+
+.units div {
+  display: grid;
+  gap: 2px;
+}
+
+.units span {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.kinds.kinds {
+  padding: 0;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--person-on);
+  font-size: var(--text-label);
+  font-weight: 700;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-interactive);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--primary-on);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.check[data-on='true'] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-full);
+}
+
+.stepper button {
+  width: 40px;
+  height: 36px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-section);
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.stepper output {
+  min-width: 2ch;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.exact {
+  width: 8rem;
+}
+
+.amount {
+  min-width: 4.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ok,
+.warn {
+  margin: 0;
+  font-size: var(--text-meta);
+  font-weight: 600;
+}
+
+.ok {
+  color: var(--success-text);
+}
+
+.warn {
+  color: var(--warning-text);
+}

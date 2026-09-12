@@ -8,7 +8,8 @@ import styles from './UploadStep.module.css'
 import flow from './flow.module.css'
 
 type Props = {
-  onExtracted: (receipt: ExtractedReceipt, warnings: string[], source: string) => void
+  /** `image` is the prepared, location-stripped photo — kept for the saved split. */
+  onExtracted: (receipt: ExtractedReceipt, warnings: string[], source: string, image: Blob) => void
   onManual: () => void
 }
 
@@ -82,7 +83,7 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         setError(body.message ?? "Couldn't read that one.")
         return
       }
-      onExtracted(body.receipt, body.warnings ?? [], body.source)
+      onExtracted(body.receipt, body.warnings ?? [], body.source, prepared.file)
     } catch {
       setPhase('error')
       setError("Couldn't read that one — try again with more light, or type it in.")

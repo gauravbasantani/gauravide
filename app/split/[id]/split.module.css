@@ -1,6 +1,14 @@
 .page {
-  max-width: 48rem;
+  max-width: 60rem;
   padding-block: var(--space-6) var(--space-12);
+}
+
+.topBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .back {
@@ -16,6 +24,49 @@
   color: var(--primary);
 }
 
+.topActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.edit,
+.open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.edit {
+  border: 1px solid transparent;
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.edit:hover {
+  background: var(--primary-hover);
+}
+
+.open {
+  border: 1px solid var(--border-interactive);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.open:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── Summary ───────────────────────────────────────────────── */
 .hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -59,8 +110,8 @@
 }
 
 .paidBy {
-  font-size: var(--text-caption);
   color: var(--text-muted);
+  font-size: var(--text-caption);
 }
 
 .total {
@@ -89,13 +140,40 @@
   color: var(--warning-text);
 }
 
+/* ── Layout: photo beside the money on desktop ─────────────── */
+.grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 860px) {
+  .withPhoto {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.column {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
 .card {
   margin-bottom: var(--space-4);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+}
+
+.grid .card {
+  margin-bottom: 0;
+}
+
+.grid {
+  margin-bottom: var(--space-4);
 }
 
 .card h2 {
@@ -105,10 +183,34 @@
   font-weight: 600;
 }
 
-.items,
-.people {
-  padding: 0;
+.photoCard {
+  position: sticky;
+  top: var(--space-4);
+}
+
+.photoLink {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+  color: var(--primary);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.photo {
+  width: 100%;
+  max-height: 32rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  object-fit: contain;
+}
+
+.people,
+.items {
   margin: 0;
+  padding: 0;
   list-style: none;
 }
 
@@ -118,7 +220,7 @@
   gap: var(--space-3);
   min-height: 64px;
   padding: var(--space-2) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
 }
 
 .avatar {
@@ -148,11 +250,16 @@
   font-size: var(--text-caption);
 }
 
+.amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .balance {
   display: grid;
   justify-items: end;
-  font-size: var(--text-caption);
   color: var(--text-muted);
+  font-size: var(--text-caption);
   line-height: 1.25;
 }
 
@@ -165,6 +272,7 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
   background: var(--bg-subtle);
   font-size: var(--text-meta);
 }
@@ -177,47 +285,95 @@
   font-variant-numeric: tabular-nums;
 }
 
-.items li,
+/* ── Items ─────────────────────────────────────────────────── */
+.modeNote {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.itemMain {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.itemName {
+  font-weight: 500;
+}
+
+.itemPeople {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.stack {
+  display: inline-flex;
+  padding-left: 6px;
+}
+
+.stack span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-full);
+  color: var(--person-on);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.price,
+.discount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.discount {
+  color: var(--success-text);
+}
+
 .totalLine {
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--border);
-}
-
-.items li span:last-child,
-.totalLine span:last-child {
+  padding: var(--space-2) var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--text-meta);
   font-variant-numeric: tabular-nums;
 }
 
-.totalLine {
-  color: var(--text-muted);
-  font-size: var(--text-meta);
-  border-bottom: 0;
+.totalLine:first-of-type {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-strong);
 }
 
-.totalLine + .totalLine {
-  padding-top: 0;
-}
-
-.open {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-md);
-  background: var(--primary);
-  color: var(--primary-on);
+.grand {
+  padding-bottom: var(--space-4);
+  color: var(--text);
+  font-size: var(--text-section);
   font-weight: 600;
-  text-decoration: none;
 }
 
-.open:hover {
-  background: var(--primary-hover);
-}
-
+/* ── Manage ────────────────────────────────────────────────── */
 .actions {
   display: grid;
   gap: var(--space-3);
@@ -257,21 +413,31 @@
 }
 
 @media (max-width: 560px) {
+  .topActions {
+    width: 100%;
+  }
+  .topActions > * {
+    flex: 1;
+  }
   .hero {
     grid-template-columns: auto minmax(0, 1fr);
   }
   .total {
     grid-column: 1 / -1;
     justify-items: start;
-    text-align: left;
     padding-top: var(--space-3);
     border-top: 1px solid var(--border);
+    text-align: left;
+  }
+  .photoCard {
+    position: static;
   }
   .people li,
   .items li,
   .totalLine,
   .transfers,
-  .card h2 {
+  .card h2,
+  .modeNote {
     padding-inline: var(--space-4);
   }
 }

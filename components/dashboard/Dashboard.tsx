@@ -60,6 +60,7 @@ function SplitRow({ split, archived }: { split: StoredSplit; archived?: boolean 
       <span className={styles.rowMain}>
         <strong>{merchant}</strong>
         <span>
+          {split.image_path ? <span aria-hidden="true">📷 </span> : null}
           {paidByLabel(split, money)}
           {data.groupName && data.groupName !== 'No group' ? ` · ${data.groupName}` : ''}
         </span>

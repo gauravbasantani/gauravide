@@ -36,6 +36,19 @@ export async function insert(table: string, row: Json): Promise<void> {
   if (!res.ok) throw new DbError(`insert ${table} ${res.status}`)
 }
 
+/** Insert one row and return it — for the generated id. */
+export async function insertReturning<T>(table: string, row: Json): Promise<T> {
+  const res = await request(table, {
+    method: 'POST',
+    body: JSON.stringify(row),
+    headers: { prefer: 'return=representation' },
+  })
+  if (!res.ok) throw new DbError(`insert ${table} ${res.status}`)
+  const rows = (await res.json()) as T[]
+  if (!rows[0]) throw new DbError(`insert ${table} returned nothing`)
+  return rows[0]
+}
+
 /** Admin only. Pass narrow `columns` — never pull receipt contents for a count. */
 export async function selectAll<T>(table: string, limit = 500, columns = '*'): Promise<T[]> {
   const params = new URLSearchParams({

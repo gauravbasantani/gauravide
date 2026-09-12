@@ -295,4 +295,191 @@ test.describe('the whole split, end to end', () => {
       ],
     })
   })
+
+  test('one item split by shares, paid by a friend outside the split', async ({ page }) => {
+    const posted: Record<string, unknown> = {}
+    await mockSignedIn(page)
+    await mockExpense(page, posted)
+
+    await manualReceipt(page, 'Dinner', '30.00')
+    await addFriend(page, 'Alex')
+
+    await page.getByRole('button', { name: 'Split Dinner unevenly' }).click()
+    const sheet = page.getByRole('dialog')
+    await sheet.getByText('By shares', { exact: true }).click()
+    await sheet.getByRole('button', { name: 'One more share for Gaurav' }).click()
+    await expect(sheet.getByText('$20.00')).toBeVisible()
+    await sheet.getByRole('button', { name: /save split/i }).click()
+    await expect(page.getByText('Gaurav ×2 · Alex ×1')).toBeVisible()
+    await page.getByRole('button', { name: /next: who paid/i }).click()
+
+    await page.getByRole('button', { name: /someone else paid/i }).click()
+    await page.getByRole('button', { name: 'Maya' }).click()
+    await expect(page.getByText(/you pay maya/i)).toBeVisible()
+    await expect(page.getByText(/alex pays maya/i)).toBeVisible()
+
+    // Trip was pre-selected before Maya joined, so the app flags her as missing
+    // from it. Choose the picker's "No group" option, not the callout shortcut.
+    await expect(page.getByText(/maya is not in trip/i)).toBeVisible()
+    await page.getByRole('button', { name: /^no group/i }).click()
+    await page.getByRole('button', { name: /add to splitwise/i }).click()
+    await expect(page.getByRole('status').filter({ hasText: /added to splitwise/i })).toBeVisible()
+    expect(posted).toMatchObject({ groupId: 0, payers: [{ personId: 303, cents: 3000 }] })
+    expect((posted.items as { split?: unknown }[])[0]?.split).toEqual({
+      kind: 'shares',
+      values: { '101': 2, '202': 1 },
+    })
+  })
+
+  test('signed out, the people step leads with Splitwise sign-in', async ({ page }) => {
+    await manualReceipt(page, 'Dinner', '20.00')
+    const signIn = page.getByRole('link', { name: /sign in with splitwise to add friends/i })
+    await expect(signIn).toBeVisible()
+    await expect(signIn).toHaveAttribute('href', '/api/auth/login?next=/new')
+    await expect(page.getByText(/or type names just for this split/i)).toBeVisible()
+  })
+
+  test('a typed name can be linked to a Splitwise friend without losing its items', async ({
+    page,
+  }) => {
+    await mockSignedIn(page)
+    await manualReceipt(page, 'Dinner', '20.00')
+
+    await page.getByRole('button', { name: /add person/i }).first().click()
+    await page.getByLabel(/name or friend search/i).fill('Sam')
+    await page.getByRole('button', { name: /add only to this split/i }).click()
+    await page.getByRole('button', { name: 'Sam, sharing Dinner' }).click()
+
+    await page.getByRole('button', { name: 'Link Sam to a Splitwise friend' }).click()
+    await page.getByLabel(/name or friend search/i).fill('')
+    await page.getByRole('dialog').getByRole('button', { name: 'Alex' }).click()
+    await expect(page.getByRole('button', { name: 'Alex, sharing Dinner' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByRole('button', { name: /link .* to a splitwise friend/i })).toHaveCount(0)
+  })
+
+  test('an edit reopens in the flow and saves to the same expense', async ({ page }) => {
+    const posted: Record<string, unknown> = {}
+    await mockSignedIn(page)
+    await mockExpense(page, posted)
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('seeded')) return
+      sessionStorage.setItem('seeded', '1')
+      localStorage.setItem(
+        'gauravide:draft:v2',
+        JSON.stringify({
+          step: 'review',
+          receipt: {
+            merchant: 'Trader Joe’s',
+            date: '2026-09-12',
+            currency: 'USD',
+            items: [{ id: 'i1', name: 'Wine', qty: 1, cents: 2500, confidence: 1 }],
+            taxLines: [],
+            subtotalCents: null,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 2500,
+          },
+          people: [
+            { id: '101', name: 'Gaurav' },
+            { id: '202', name: 'Alex' },
+          ],
+          assignments: { i1: ['101', '202'] },
+          payerId: '101',
+          settings: { mode: 'items', included: null, weights: {}, exact: {}, payers: null, itemSplits: {} },
+          submitKey: '6f1c1b1e-8a5b-4c2d-9e3f-1a2b3c4d5e6f',
+          submittedExpenseId: null,
+          editing: {
+            splitId: '0b7f9a52-3c1d-4e8f-9a6b-2c3d4e5f6a7b',
+            expenseId: 555,
+            merchant: 'Trader Joe’s',
+            groupId: 303,
+          },
+          savedAt: Date.now(),
+        }),
+      )
+    })
+
+    await page.goto('/new?edit=1')
+    await expect(page.getByText(/editing “trader joe’s”/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
+    await page.getByRole('button', { name: /looks right/i }).click()
+    await page.getByRole('button', { name: /next: who paid/i }).click()
+    await expect(page.getByRole('button', { name: /trip/i })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: /save changes to splitwise/i }).click()
+    await expect(page.getByRole('status').filter({ hasText: /changes saved/i })).toBeVisible()
+    expect(posted).toMatchObject({
+      edit: { splitId: '0b7f9a52-3c1d-4e8f-9a6b-2c3d4e5f6a7b' },
+      totalCents: 2500,
+    })
+  })
+
+  test('the item list reads cleanly and a new group can be created', async ({ page }) => {
+    await mockSignedIn(page)
+    await page.route('**/api/receipt/extract', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          source: 'gemini',
+          warnings: [],
+          receipt: {
+            merchant: 'Costco',
+            date: '2026-09-04',
+            currency: 'USD',
+            items: [
+              { name: '512599 **KS TOWEL**', qty: 1, cents: 2079, taxFlag: 'A', confidence: 1 },
+              { name: '0000389361 / SNAPS', qty: 1, cents: -300, confidence: 1 },
+            ],
+            taxLines: [],
+            subtotalCents: 1779,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 1779,
+          },
+        }),
+      }),
+    )
+    await page.route('**/api/splitwise/group', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          group: {
+            id: 777,
+            name: 'Costco run',
+            updatedAt: null,
+            members: [
+              { id: 101, name: 'Gaurav' },
+              { id: 303, name: 'Maya' },
+            ],
+          },
+        }),
+      }),
+    )
+
+    await page.goto('/new')
+    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.getByRole('button', { name: /read this receipt/i }).click()
+    await expect(page.getByLabel('Item 1 name')).toHaveValue('KS TOWEL')
+    await expect(page.getByLabel('Item 2 name')).toHaveValue('Discount · SNAPS')
+    await expect(page.getByText('✓ Adds up to the receipt total')).toBeVisible()
+    await page.getByRole('button', { name: /looks right/i }).click()
+
+    await addFriend(page, 'Maya')
+    await page.getByRole('button', { name: /everyone shares everything/i }).click()
+    await page.getByRole('button', { name: /next: who paid/i }).click()
+
+    await page.getByRole('button', { name: /create a new group/i }).click()
+    await page.getByLabel('New group name').fill('Costco run')
+    await page.getByRole('button', { name: /^create group$/i }).click()
+    await expect(page.getByRole('button', { name: /costco run/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
 })

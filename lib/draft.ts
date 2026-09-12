@@ -30,7 +30,11 @@ export type SplitSettings = {
   exact: Record<string, number>
   /** Several payers with amounts. null = one payer (payerId) paid it all. */
   payers: Payment[] | null
+  /** By-item mode: uneven splits of single lines, keyed by item id (FR-32). */
+  itemSplits: Record<string, ItemSplit>
 }
+
+export type ItemSplit = { kind: 'shares' | 'exact'; values: Record<string, number> }
 
 export const DEFAULT_SETTINGS: SplitSettings = {
   mode: 'items',
@@ -38,6 +42,7 @@ export const DEFAULT_SETTINGS: SplitSettings = {
   weights: {},
   exact: {},
   payers: null,
+  itemSplits: {},
 }
 
 export type Draft = {
@@ -55,7 +60,17 @@ export type Draft = {
   submitKey: string
   /** Set once Splitwise accepted it. A restored draft shows success, not a second submit. */
   submittedExpenseId: number | null
+  /** Set when reopening a saved split: submitting updates that Splitwise expense (FR-39). */
+  editing: EditTarget | null
   savedAt: number
+}
+
+export type EditTarget = {
+  splitId: string
+  expenseId: number
+  merchant: string | null
+  /** Where it lives now, so the group stays selected unless changed. */
+  groupId: number
 }
 
 export function loadDraft(): Draft | null {
@@ -65,7 +80,11 @@ export function loadDraft(): Draft | null {
     const draft = JSON.parse(raw) as Draft
     // A draft older than a day is almost certainly abandoned.
     if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) return null
-    return { ...draft, settings: { ...DEFAULT_SETTINGS, ...draft.settings } }
+    return {
+      ...draft,
+      settings: { ...DEFAULT_SETTINGS, ...draft.settings },
+      editing: draft.editing ?? null,
+    }
   } catch {
     return null
   }

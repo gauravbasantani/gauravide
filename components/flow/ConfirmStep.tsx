@@ -7,7 +7,7 @@ import { colourOf, initialsOf } from './AvatarToggle'
 import { formatMoney, parseMoney } from '@/lib/money'
 import { netBalances, suggestTransfers } from '@/lib/split'
 import { itemKey, type ExtractedReceipt } from '@/lib/receipt'
-import type { Person, SplitSettings } from '@/lib/draft'
+import type { EditTarget, Person, SplitSettings } from '@/lib/draft'
 import { missingFrom, rankGroups, type SwGroup, type SwPerson } from '@/lib/useSplitwise'
 import { GroupPicker } from './GroupPicker'
 import {
@@ -36,7 +36,14 @@ type Props = {
   signedIn?: boolean
   submitKey: string
   submittedExpenseId: number | null
-  onSubmitted: (expenseId: number) => void
+  onSubmitted: (expenseId: number, splitId: string | null) => void
+  /** Reopened from a saved split: update that expense instead of creating one. */
+  editing?: EditTarget | null
+  /** The receipt photo being kept with the saved split. */
+  photoStatus?: 'saving' | 'saved' | 'failed' | null
+  /** Splitwise friends (you first), for a payer who isn't in the split yet. */
+  available?: SwPerson[]
+  onAddPerson?: (person: Person) => void
   onBack: () => void
   onDone: () => void
 }
@@ -55,6 +62,10 @@ export function ConfirmStep({
   submitKey,
   submittedExpenseId,
   onSubmitted,
+  available,
+  onAddPerson,
+  editing,
+  photoStatus,
   onBack,
   onDone,
 }: Props) {
@@ -66,8 +77,8 @@ export function ConfirmStep({
   const [availableGroups, setAvailableGroups] = useState<SwGroup[] | undefined>(groups)
   const [groupBusy, setGroupBusy] = useState(false)
   const [groupError, setGroupError] = useState<string | null>(null)
-  const [creatingGroup, setCreatingGroup] = useState(false)
-  const [newGroupName, setNewGroupName] = useState('')
+  const [pickingPayer, setPickingPayer] = useState(false)
+  const [payerSearch, setPayerSearch] = useState('')
 
   const total = receiptTotal(receipt)
   const currency = receipt.currency
@@ -75,6 +86,29 @@ export function ConfirmStep({
   const nameOf = (id: string) => {
     const person = people.find((p) => p.id === id)
     return person ? (id === meId ? 'You' : person.name) : 'Someone'
+  }
+  /** Mid-sentence form: "Alex pays you". */
+  const nameIn = (id: string) => (id === meId ? 'you' : nameOf(id))
+
+  // Friends who could have paid but aren't in the split yet (FR-33).
+  const outsiders = (available ?? []).filter((f) => !people.some((p) => p.id === String(f.id)))
+  const outsiderMatches = outsiders
+    .filter((f) => f.name.toLowerCase().includes(payerSearch.trim().toLowerCase()))
+    .slice(0, 8)
+
+  function addOutsidePayer(friend: SwPerson) {
+    const id = String(friend.id)
+    // They paid but didn't share: keep equal and share modes from quietly
+    // handing them a portion of the bill.
+    onSettings({
+      ...settings,
+      included: settings.included ?? people.map((p) => p.id),
+      weights: { ...settings.weights, [id]: 0 },
+    })
+    onAddPerson?.({ id, name: friend.name })
+    if (settings.payers === null) onPayer(id)
+    setPickingPayer(false)
+    setPayerSearch('')
   }
 
   // You, if you're in the split; otherwise whoever was added first.
@@ -117,8 +151,9 @@ export function ConfirmStep({
   }, [availableGroups, swPeople])
 
   useEffect(() => {
-    if (canPush) setGroupId((current) => current ?? suggestedGroupId)
-  }, [canPush, suggestedGroupId])
+    // An edit keeps the group it already lives in until the user changes it.
+    if (canPush) setGroupId((current) => current ?? (editing ? editing.groupId : suggestedGroupId))
+  }, [canPush, suggestedGroupId, editing])
 
   useEffect(() => {
     setAvailableGroups(groups)
@@ -176,8 +211,8 @@ export function ConfirmStep({
     }
   }
 
-  async function createMatchingGroup() {
-    const name = newGroupName.trim() || receipt.merchant?.trim() || 'New split'
+  async function createMatchingGroup(requested: string) {
+    const name = requested.trim() || receipt.merchant?.trim() || 'New split'
     setGroupBusy(true)
     setGroupError(null)
     try {
@@ -190,7 +225,6 @@ export function ConfirmStep({
       if (!response.ok || !body.group) throw new Error(body.message ?? 'Couldn’t create the group.')
       setAvailableGroups((current) => [...(current ?? []), body.group])
       setGroupId(body.group.id)
-      setCreatingGroup(false)
     } catch (error) {
       setGroupError(error instanceof Error ? error.message : 'Couldn’t create the group.')
     } finally {
@@ -243,9 +277,13 @@ export function ConfirmStep({
             cents: item.cents,
             ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
             people: (assignments[itemKey(item, i)] ?? []).map(Number),
+            ...(settings.itemSplits[itemKey(item, i)]
+              ? { split: settings.itemSplits[itemKey(item, i)] }
+              : {}),
           })),
           people: people.map((p) => ({ id: Number(p.id), name: p.name })),
           idempotencyKey: submitKey, // one key per draft — never two expenses (FR-22)
+          ...(editing ? { edit: { splitId: editing.splitId } } : {}),
         }),
       })
       const body = await res.json().catch(() => ({}))
@@ -253,7 +291,7 @@ export function ConfirmStep({
         setPushError(body.message ?? 'Couldn’t add it to Splitwise.')
         return
       }
-      onSubmitted(body.id)
+      onSubmitted(body.id, body.splitId ?? null)
       // A Splitwise success remains a success even if the dashboard copy
       // failed. Never make the user retry and risk a duplicate expense.
       setHistoryNotice(body.historySaved === false)
@@ -282,9 +320,12 @@ export function ConfirmStep({
           <span className={styles.successIcon} aria-hidden="true">
             ✓
           </span>
-          <h1 className="t-title">Added to Splitwise</h1>
+          <h1 className="t-title">{editing ? 'Changes saved to Splitwise' : 'Added to Splitwise'}</h1>
           <p className="t-meta">
-            {receipt.merchant ?? 'Receipt'} · {money(total)}. Everyone in the split can see it now.
+            {receipt.merchant ?? 'Receipt'} · {money(total)}.{' '}
+            {editing
+              ? 'Everyone in it now sees the updated amounts.'
+              : 'Everyone in the split can see it now, and it’s saved in Your splits.'}
           </p>
           {transfers.length > 0 ? (
             <ul className={styles.transfers}>
@@ -292,7 +333,7 @@ export function ConfirmStep({
                 <li key={t.from + t.to}>
                   <span>
                     <strong>{nameOf(t.from)}</strong> {t.from === meId ? 'owe' : 'owes'}{' '}
-                    <strong>{nameOf(t.to)}</strong>
+                    <strong>{nameIn(t.to)}</strong>
                   </span>
                   <span className={styles.owe} data-num>
                     {money(t.cents)}
@@ -309,6 +350,15 @@ export function ConfirmStep({
           >
             Open it in Splitwise ↗
           </a>
+          {photoStatus ? (
+            <p className={styles.historyNotice} aria-live="polite">
+              {photoStatus === 'saving'
+                ? 'Saving the receipt photo to Your splits…'
+                : photoStatus === 'saved'
+                  ? '📷 Receipt photo saved with this split — only you can see it.'
+                  : 'The expense is in Splitwise, but the receipt photo couldn’t be saved.'}
+            </p>
+          ) : null}
           {historyNotice ? (
             <p className={styles.historyNotice}>
               It’s in Splitwise, but we couldn’t save a copy to Your splits this time.
@@ -377,8 +427,10 @@ export function ConfirmStep({
               Who paid the bill?
             </h2>
             <p className={flow.sectionHint}>
-              Pick whoever handed over the card or cash. If the bill was paid in parts, choose
-              several people and enter what each put in.
+              Pick whoever handed over the card or cash. Paid in parts? Choose several people.
+              {outsiders.length > 0
+                ? ' A friend who isn’t in the split paid? Use “Someone else paid”.'
+                : ''}
             </p>
           </div>
         </header>
@@ -462,6 +514,60 @@ export function ConfirmStep({
             </p>
           </>
         )}
+        {onAddPerson && outsiders.length > 0 ? (
+          <div className={styles.someoneElse}>
+            {!pickingPayer ? (
+              <button
+                type="button"
+                className={styles.someoneButton}
+                onClick={() => setPickingPayer(true)}
+              >
+                + Someone else paid
+              </button>
+            ) : (
+              <div className={styles.picker}>
+                <Field
+                  label="Who paid? Search your Splitwise friends"
+                  value={payerSearch}
+                  placeholder="Name"
+                  onChange={(e) => setPayerSearch(e.target.value)}
+                  help="They’re added to this expense as the payer, and owe nothing unless you give them items."
+                />
+                <div className={styles.pickerList}>
+                  {outsiderMatches.map((friend) => (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      className={styles.friendChip}
+                      onClick={() => addOutsidePayer(friend)}
+                    >
+                      <span
+                        className={styles.avatar}
+                        style={{ background: colourOf(String(friend.id)) }}
+                        aria-hidden="true"
+                      >
+                        {initialsOf(friend.name)}
+                      </span>
+                      {friend.name}
+                    </button>
+                  ))}
+                  {outsiderMatches.length === 0 ? (
+                    <span className="t-caption">No friends match “{payerSearch}”.</span>
+                  ) : null}
+                </div>
+                <Button
+                  variant="tertiary"
+                  onClick={() => {
+                    setPickingPayer(false)
+                    setPayerSearch('')
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : null}
       </section>
 
       {/* ── Who owes what ────────────────────────────────────────── */}
@@ -532,7 +638,7 @@ export function ConfirmStep({
                 <li key={t.from + t.to}>
                   <span>
                     <strong>{nameOf(t.from)}</strong> {t.from === meId ? 'pay' : 'pays'}{' '}
-                    <strong>{nameOf(t.to)}</strong>
+                    <strong>{nameIn(t.to)}</strong>
                   </span>
                   <span data-num>{money(t.cents)}</span>
                 </li>
@@ -575,7 +681,7 @@ export function ConfirmStep({
               </h2>
               <p className={flow.sectionHint}>
                 A group keeps it with that crew’s balances. “No group” adds it between you and each
-                person directly.
+                person directly. Or start a new group for this crew.
               </p>
             </div>
           </header>
@@ -584,11 +690,14 @@ export function ConfirmStep({
               groups={availableGroups}
               people={swPeople}
               selectedId={groupId}
+              suggestedName={receipt.merchant?.trim() || ''}
+              creating={groupBusy}
+              createError={groupError}
               onSelect={(id) => {
                 setGroupId(id)
                 setGroupError(null)
-                setCreatingGroup(false)
               }}
+              onCreate={(name) => void createMatchingGroup(name)}
             />
             {groupId === 0 && !meInvolved ? (
               <p className={styles.hint}>
@@ -607,40 +716,18 @@ export function ConfirmStep({
             {missingPeople.length === 1 ? 'is' : 'are'} not in {selectedGroup.name}
           </strong>
           <span>
-            Choose what should happen first. Gauravide never adds anyone to a group without you
-            asking.
+            Add them to it, pick another group above, or create a new one. Gauravide never adds
+            anyone to a group without you asking.
           </span>
           <div className={styles.groupActions}>
             <Button onClick={() => void addPeopleToSelectedGroup()} loading={groupBusy}>
               Add {missingPeople.length === 1 ? missingPeople[0]?.name : 'them'} to{' '}
               {selectedGroup.name}
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setCreatingGroup(true)
-                setNewGroupName(receipt.merchant?.trim() || selectedGroup.name + ' split')
-              }}
-            >
-              Create a new group
-            </Button>
             <Button variant="tertiary" onClick={() => setGroupId(0)}>
               Use no group
             </Button>
           </div>
-          {creatingGroup ? (
-            <div className={styles.createGroup}>
-              <Field
-                label="New group name"
-                value={newGroupName}
-                onChange={(event) => setNewGroupName(event.target.value)}
-                placeholder="Dinner crew"
-              />
-              <Button onClick={() => void createMatchingGroup()} loading={groupBusy}>
-                Create group with everyone
-              </Button>
-            </div>
-          ) : null}
           {groupError ? <span className={styles.groupError}>{groupError}</span> : null}
         </div>
       ) : null}
@@ -680,7 +767,7 @@ export function ConfirmStep({
                     : undefined)
               }
             >
-              Add to Splitwise
+              {editing ? 'Save changes to Splitwise' : 'Add to Splitwise'}
             </Button>
           ) : (
             <Button full onClick={onDone} disabled={!plan.ok} disabledReason={problem}>

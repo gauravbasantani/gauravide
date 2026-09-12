@@ -125,6 +125,74 @@
   box-shadow: var(--focus-ring);
 }
 
+.someoneElse {
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.someoneButton {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1.5px dashed var(--border-interactive);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.someoneButton:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.picker {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.picker > :first-child {
+  justify-self: stretch;
+}
+
+.pickerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.friendChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 4px var(--space-4) 4px 4px;
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.friendChip:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.friendChip .avatar {
+  width: 32px;
+  height: 32px;
+}
+
 .paidRow,
 .person {
   display: flex;

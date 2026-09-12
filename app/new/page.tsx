@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UploadStep } from '@/components/flow/UploadStep'
 import { ReviewStep } from '@/components/flow/ReviewStep'
@@ -13,11 +13,18 @@ import {
   loadDraft,
   saveDraft,
   type Draft,
+  type EditTarget,
   type Person,
   type SplitSettings,
   type Step,
 } from '@/lib/draft'
-import { withItemIds, type ExtractedReceipt } from '@/lib/receipt'
+import { clearDraftImage, loadDraftImage, saveDraftImage } from '@/lib/imageStore'
+import {
+  splitQuantityIntoItems,
+  tidyReceipt,
+  withItemIds,
+  type ExtractedReceipt,
+} from '@/lib/receipt'
 import { useSplitwise } from '@/lib/useSplitwise'
 import flow from '@/components/flow/flow.module.css'
 
@@ -43,6 +50,8 @@ const EMPTY: ExtractedReceipt = {
 
 const newId = () => crypto.randomUUID()
 
+type PhotoStatus = 'saving' | 'saved' | 'failed' | null
+
 export default function NewSplitPage() {
   const router = useRouter()
   const sw = useSplitwise()
@@ -55,36 +64,69 @@ export default function NewSplitPage() {
   const [settings, setSettings] = useState<SplitSettings>(DEFAULT_SETTINGS)
   const [submitKey, setSubmitKey] = useState<string>(() => newId())
   const [submittedExpenseId, setSubmittedExpenseId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<EditTarget | null>(null)
   const [restored, setRestored] = useState<Draft | null>(null)
+  const [receiptImage, setReceiptImage] = useState<Blob | null>(null)
+  const [photoStatus, setPhotoStatus] = useState<PhotoStatus>(null)
 
-  // A dropped connection or a phone call must not cost fourteen assignments.
+  const apply = useCallback((draft: Draft) => {
+    setStep(draft.step)
+    setReceipt(draft.receipt)
+    setPeopleState(draft.people)
+    setAssignments(draft.assignments)
+    setPayerId(draft.payerId)
+    setSettings(draft.settings)
+    setSubmitKey(draft.submitKey)
+    setSubmittedExpenseId(draft.submittedExpenseId)
+    setEditing(draft.editing)
+    setRestored(null)
+    void loadDraftImage().then(setReceiptImage)
+  }, [])
+
+  // A dropped connection, a phone call, or the Splitwise sign-in round trip
+  // must not cost fourteen assignments.
   useEffect(() => {
     const draft = loadDraft()
-    if (draft && draft.step !== 'upload') setRestored(draft)
-  }, [])
+    if (!draft || draft.step === 'upload') return
+    // "Edit split" on a saved split lands straight in the flow.
+    if (draft.editing && new URLSearchParams(window.location.search).has('edit')) {
+      apply(draft)
+      return
+    }
+    setRestored(draft)
+  }, [apply])
 
   useEffect(() => {
     if (step === 'upload') return
-    saveDraft({ step, receipt, people, assignments, payerId, settings, submitKey, submittedExpenseId })
-  }, [step, receipt, people, assignments, payerId, settings, submitKey, submittedExpenseId])
+    saveDraft({
+      step,
+      receipt,
+      people,
+      assignments,
+      payerId,
+      settings,
+      submitKey,
+      submittedExpenseId,
+      editing,
+    })
+  }, [step, receipt, people, assignments, payerId, settings, submitKey, submittedExpenseId, editing])
 
-  const resume = useCallback(() => {
-    if (!restored) return
-    setStep(restored.step)
-    setReceipt(restored.receipt)
-    setPeopleState(restored.people)
-    setAssignments(restored.assignments)
-    setPayerId(restored.payerId)
-    setSettings(restored.settings)
-    setSubmitKey(restored.submitKey)
-    setSubmittedExpenseId(restored.submittedExpenseId)
-    setRestored(null)
-  }, [restored])
+  const imageUrl = useMemo(
+    () => (receiptImage ? URL.createObjectURL(receiptImage) : null),
+    [receiptImage],
+  )
+  useEffect(
+    () => () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl)
+    },
+    [imageUrl],
+  )
 
-  function startDraft(next: ExtractedReceipt, nextWarnings: string[]) {
+  function startDraft(next: ExtractedReceipt, nextWarnings: string[], image?: Blob) {
     clearDraft()
+    void clearDraftImage()
     setRestored(null)
-    setReceipt(withItemIds(next, newId))
+    setReceipt(withItemIds(tidyReceipt(next), newId))
     setWarnings(nextWarnings)
     setPeopleState([])
     setAssignments({})
@@ -92,13 +134,18 @@ export default function NewSplitPage() {
     setSettings(DEFAULT_SETTINGS)
     setSubmitKey(newId())
     setSubmittedExpenseId(null)
+    setEditing(null)
+    setPhotoStatus(null)
+    // Photos only — a PDF has no preview worth keeping.
+    const photo = image && image.type.startsWith('image/') ? image : null
+    setReceiptImage(photo)
+    if (photo) void saveDraftImage(photo)
     setStep('review')
   }
 
   /**
    * Removing someone must also remove them everywhere they were referenced —
-   * as a payer, a share, or an exact amount — or a stale id reaches Splitwise
-   * (review finding 2).
+   * as a payer, a share, or an exact amount — or a stale id reaches Splitwise.
    */
   function setPeople(next: Person[]) {
     const ids = new Set(next.map((p) => p.id))
@@ -108,6 +155,35 @@ export default function NewSplitPage() {
       ...current,
       included: current.included?.filter((id) => ids.has(id)) ?? null,
       payers: current.payers?.filter((p) => ids.has(p.personId)) ?? null,
+    }))
+  }
+
+  /**
+   * A name typed before signing in becomes a real Splitwise friend: every
+   * item, share, exact amount and payment moves to the new id (FR-40).
+   */
+  function replacePerson(oldId: string, person: Person) {
+    const swap = (id: string) => (id === oldId ? person.id : id)
+    function rekey<T>(record: Record<string, T>): Record<string, T> {
+      return Object.fromEntries(Object.entries(record).map(([key, value]) => [swap(key), value]))
+    }
+    setPeopleState(people.map((p) => (p.id === oldId ? person : p)))
+    setAssignments(
+      Object.fromEntries(Object.entries(assignments).map(([key, ids]) => [key, ids.map(swap)])),
+    )
+    setPayerId((current) => (current === oldId ? person.id : current))
+    setSettings((current) => ({
+      ...current,
+      included: current.included?.map(swap) ?? null,
+      weights: rekey(current.weights),
+      exact: rekey(current.exact),
+      payers: current.payers?.map((p) => ({ ...p, personId: swap(p.personId) })) ?? null,
+      itemSplits: Object.fromEntries(
+        Object.entries(current.itemSplits).map(([key, split]) => [
+          key,
+          { ...split, values: rekey(split.values) },
+        ]),
+      ),
     }))
   }
 
@@ -122,23 +198,68 @@ export default function NewSplitPage() {
     setStep('assign')
   }
 
-  function finish() {
+  /** Tomatoes ×4 → four lines, each starting with whoever had the whole line. */
+  function splitUnits(itemId: string) {
+    const index = receipt.items.findIndex((item) => item.id === itemId)
+    const item = receipt.items[index]
+    if (!item) return
+    const units = splitQuantityIntoItems(item)
+    if (units.length < 2) return
+    setReceipt({
+      ...receipt,
+      items: [...receipt.items.slice(0, index), ...units, ...receipt.items.slice(index + 1)],
+    })
+    const holders = assignments[itemId] ?? []
+    setAssignments({
+      ...assignments,
+      ...Object.fromEntries(units.map((unit) => [unit.id ?? '', holders])),
+    })
+    setSettings((current) => ({
+      ...current,
+      itemSplits: Object.fromEntries(
+        Object.entries(current.itemSplits).filter(([key]) => key !== itemId),
+      ),
+    }))
+  }
+
+  /** Splitwise accepted it. Keep the photo with the saved split (FR-38). */
+  async function submitted(expenseId: number, splitId: string | null) {
+    setSubmittedExpenseId(expenseId)
+    if (!receiptImage || !splitId || editing) return
+    setPhotoStatus('saving')
+    try {
+      const form = new FormData()
+      form.append('file', receiptImage, 'receipt')
+      const res = await fetch(`/api/splits/${splitId}/image`, { method: 'POST', body: form })
+      setPhotoStatus(res.ok ? 'saved' : 'failed')
+    } catch {
+      setPhotoStatus('failed')
+    }
+  }
+
+  function leave(to: string) {
     clearDraft()
-    router.push('/')
+    void clearDraftImage()
+    router.push(to)
     router.refresh()
   }
+
+  const finish = () => leave(editing ? `/split/${editing.splitId}` : '/')
 
   const currentStep = Math.max(
     0,
     FLOW_STEPS.findIndex((item) => item.key === step),
   )
   const meId = sw.me ? String(sw.me.id) : null
+  const friends = sw.signedIn
+    ? ([sw.me, ...sw.friends].filter(Boolean) as typeof sw.friends)
+    : undefined
 
   return (
     <div className={[flow.page, 'shell'].join(' ')}>
       <nav className={flow.progress} aria-label="Receipt split progress">
         <div className={flow.progressTopline}>
-          <span className="t-label">New split</span>
+          <span className="t-label">{editing ? 'Editing split' : 'New split'}</span>
           <span className="t-caption">
             Step {currentStep + 1} of {FLOW_STEPS.length}
           </span>
@@ -165,6 +286,26 @@ export default function NewSplitPage() {
         </ol>
       </nav>
 
+      {editing && !submittedExpenseId ? (
+        <div className={flow.helper} role="status">
+          <span className={flow.helperIcon} aria-hidden="true">
+            ✎
+          </span>
+          <div className={flow.helperContent}>
+            <strong>Editing “{editing.merchant ?? 'Receipt'}”</strong>
+            <span>
+              Change anything — items, people, who paid, or the group. Saving updates the same
+              Splitwise expense for everyone in it; nothing is duplicated.
+            </span>
+            <span>
+              <Button variant="tertiary" onClick={() => leave(`/split/${editing.splitId}`)}>
+                Cancel editing
+              </Button>
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {restored ? (
         <div className={flow.notice} style={{ marginBottom: 'var(--space-5)' }}>
           <span className={flow.noticeIcon} aria-hidden="true">
@@ -174,20 +315,27 @@ export default function NewSplitPage() {
             <span>
               {restored.submittedExpenseId
                 ? 'Your last split was already added to Splitwise.'
-                : 'You have a split in progress from earlier.'}
+                : restored.editing
+                  ? `You were editing “${restored.editing.merchant ?? 'Receipt'}”.`
+                  : 'You have a split in progress from earlier.'}
             </span>
             <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <Button onClick={resume}>
-                {restored.submittedExpenseId ? 'See it' : 'Pick up where I left off'}
+              <Button onClick={() => apply(restored)}>
+                {restored.submittedExpenseId
+                  ? 'See it'
+                  : restored.editing
+                    ? 'Continue editing'
+                    : 'Pick up where I left off'}
               </Button>
               <Button
                 variant="tertiary"
                 onClick={() => {
                   clearDraft()
+                  void clearDraftImage()
                   setRestored(null)
                 }}
               >
-                Start fresh
+                {restored.editing ? 'Discard changes' : 'Start fresh'}
               </Button>
             </div>
           </div>
@@ -203,7 +351,7 @@ export default function NewSplitPage() {
             </div>
           </div>
           <UploadStep
-            onExtracted={(r, w) => startDraft(r, w)}
+            onExtracted={(r, w, _source, image) => startDraft(r, w, image)}
             onManual={() =>
               startDraft({ ...EMPTY, items: [{ name: '', qty: 1, cents: 0, confidence: 1 }] }, [])
             }
@@ -215,8 +363,9 @@ export default function NewSplitPage() {
         <ReviewStep
           receipt={receipt}
           warnings={warnings}
+          imageUrl={imageUrl}
           onChange={setReceipt}
-          onBack={() => setStep('upload')}
+          onBack={() => (editing ? leave(`/split/${editing.splitId}`) : setStep('upload'))}
           onNext={goToAssign}
         />
       ) : null}
@@ -226,9 +375,8 @@ export default function NewSplitPage() {
           receipt={receipt}
           people={people}
           me={sw.me}
-          available={
-            sw.signedIn ? ([sw.me, ...sw.friends].filter(Boolean) as typeof sw.friends) : undefined
-          }
+          available={friends}
+          canSignIn={!sw.loading && !sw.signedIn}
           assignments={assignments}
           settings={settings}
           onPeople={(next) => {
@@ -236,6 +384,7 @@ export default function NewSplitPage() {
             // The first person added is the natural default payer.
             if (!payerId && next[0]) setPayerId(next.find((p) => p.id === meId)?.id ?? next[0].id)
           }}
+          onReplacePerson={replacePerson}
           onAssignments={setAssignments}
           onSettings={setSettings}
           onAddSplitwisePerson={
@@ -254,6 +403,7 @@ export default function NewSplitPage() {
                 }
               : undefined
           }
+          onSplitUnits={splitUnits}
           onBack={() => setStep('review')}
           onNext={() => setStep('confirm')}
         />
@@ -273,7 +423,11 @@ export default function NewSplitPage() {
           signedIn={sw.signedIn}
           submitKey={submitKey}
           submittedExpenseId={submittedExpenseId}
-          onSubmitted={setSubmittedExpenseId}
+          onSubmitted={(expenseId, splitId) => void submitted(expenseId, splitId)}
+          editing={editing}
+          photoStatus={photoStatus}
+          available={friends}
+          onAddPerson={(person) => setPeople([...people, person])}
           onBack={() => setStep('assign')}
           onDone={finish}
         />

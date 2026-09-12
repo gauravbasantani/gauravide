@@ -4,6 +4,7 @@ import { dbConfigured, deleteOwned, selectOneOwned, updateOwned } from '@/lib/db
 import type { StoredSplit } from '@/lib/history'
 import { getSession, ownerId } from '@/lib/session'
 import { deleteExpense, SplitwiseError } from '@/lib/splitwise'
+import { removeObject } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -69,6 +70,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       }
     }
     const removed = await deleteOwned('splits', ownerId(session), split.id)
+    // The photo goes with the dashboard copy — never left orphaned in storage.
+    if (removed && split.image_path) await removeObject(split.image_path).catch(() => undefined)
     return NextResponse.json({ ok: removed })
   } catch (error) {
     return json(

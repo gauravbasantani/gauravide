@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { netBalances, planSplit, suggestTransfers, type Item } from '@/lib/split'
 import { sum } from '@/lib/money'
-import { splitQuantityIntoItems, unitCount, withItemIds } from '@/lib/receipt'
+import { draftFromSplit, type StoredSplit } from '@/lib/history'
+import { buildPlan, payersFor } from '@/components/flow/plan'
+import {
+  cleanItemName,
+  splitQuantityIntoItems,
+  tidyReceipt,
+  unitCount,
+  withItemIds,
+} from '@/lib/receipt'
 
 const A = 'a'
 const B = 'b'
@@ -237,5 +245,152 @@ describe('item identity (review finding 1)', () => {
     expect(unitCount({ qty: 1 })).toBe(1)
     expect(unitCount({ qty: 4 })).toBe(4)
     expect(unitCount({ qty: 500 })).toBe(1)
+  })
+})
+
+describe('splitting one item unevenly (FR-32)', () => {
+  it('by shares: 2 : 1 on a taxed line, and its tax follows the same weights', () => {
+    const plan = ok(
+      planSplit({
+        mode: 'items',
+        items: [
+          {
+            id: 'wine',
+            name: 'Wine',
+            cents: 3000,
+            taxFlag: 'A',
+            people: [A, B],
+            split: { kind: 'shares', values: { a: 2, b: 1 } },
+          },
+        ],
+        people: [A, B],
+        taxLines: [{ flag: 'A', cents: 300 }],
+        totalCents: 3300,
+        payers: [{ personId: A, cents: 3300 }],
+      }),
+    )
+    expect(plan.owed).toEqual({ a: 2200, b: 1100 })
+  })
+
+  it('exact amounts must add up to the item price', () => {
+    const base = {
+      mode: 'items' as const,
+      people: [A, B],
+      totalCents: 1000,
+      payers: [{ personId: A, cents: 1000 }],
+    }
+    const item = { id: 'cake', name: 'Cake', cents: 1000, people: [A, B] }
+    expect(
+      planSplit({ ...base, items: [{ ...item, split: { kind: 'exact', values: { a: 700, b: 200 } } }] }),
+    ).toMatchObject({ ok: false, problem: 'item_exact_mismatch', gap: 100 })
+    const good = ok(
+      planSplit({ ...base, items: [{ ...item, split: { kind: 'exact', values: { a: 700, b: 300 } } }] }),
+    )
+    expect(good.owed).toEqual({ a: 700, b: 300 })
+  })
+})
+
+describe('readable item names', () => {
+  it('strips register numbers and decoration, keeps real names', () => {
+    expect(cleanItemName('512599 **KS TOWEL**')).toBe('KS TOWEL')
+    expect(cleanItemName('0000389361 / SNAPS')).toBe('SNAPS')
+    expect(cleanItemName('Pad Thai')).toBe('Pad Thai')
+    expect(cleanItemName('7UP')).toBe('7UP')
+  })
+
+  it('labels a bare negative line as a discount', () => {
+    const tidy = tidyReceipt({
+      merchant: null,
+      date: null,
+      currency: 'USD',
+      items: [
+        { name: '0000389361 / SNAPS', qty: 1, cents: -300 },
+        { name: 'INSTANT SAVINGS', qty: 1, cents: -100 },
+      ],
+      taxLines: [],
+      subtotalCents: null,
+      taxCents: 0,
+      tipCents: 0,
+      feeCents: 0,
+      totalCents: null,
+    })
+    expect(tidy.items.map((i) => i.name)).toEqual(['Discount · SNAPS', 'INSTANT SAVINGS'])
+  })
+})
+
+describe('reopening a saved split to edit it (FR-39)', () => {
+  const saved = {
+    id: '0b7f9a52-3c1d-4e8f-9a6b-2c3d4e5f6a7b',
+    owner_id: '101',
+    expense_ids: ['555'],
+    image_path: null,
+    archived_at: null,
+    created_at: '2026-09-12T00:00:00Z',
+    data: {
+      merchant: 'Trader Joe’s',
+      date: '2026-09-12',
+      currency: 'USD',
+      totalCents: 3700,
+      taxCents: 0,
+      tipCents: 0,
+      feeCents: 0,
+      items: [
+        { name: 'Tomatoes', cents: 1200, people: [101, 202] },
+        {
+          name: 'Wine',
+          cents: 2500,
+          people: [101, 202, 303],
+          split: { kind: 'shares' as const, values: { '101': 2, '202': 1, '303': 1 } },
+        },
+      ],
+      people: [
+        { id: 101, name: 'Gaurav' },
+        { id: 202, name: 'Alex' },
+        { id: 303, name: 'Maya' },
+      ],
+      payerId: 101,
+      groupId: 9,
+      groupName: 'Apartment',
+      status: 'in_splitwise' as const,
+      mode: 'items' as const,
+      owed: { '101': 1850, '202': 1225, '303': 625 },
+      paid: { '101': 2000, '303': 1700 },
+    },
+  } satisfies StoredSplit
+
+  it('rebuilds a draft that recomputes to exactly what was sent', () => {
+    let n = 0
+    const draft = draftFromSplit(saved, () => 'id' + ++n)
+    expect(draft.editing).toEqual({
+      splitId: saved.id,
+      expenseId: 555,
+      merchant: 'Trader Joe’s',
+      groupId: 9,
+    })
+    expect(draft.settings.payers).toEqual([
+      { personId: '101', cents: 2000 },
+      { personId: '303', cents: 1700 },
+    ])
+    const plan = ok(
+      buildPlan(
+        draft.receipt,
+        draft.people,
+        draft.assignments,
+        draft.settings,
+        payersFor(draft.settings, draft.payerId, draft.people, 3700),
+      ),
+    )
+    expect(plan.owed).toEqual(saved.data.owed)
+    expect(plan.paid).toMatchObject(saved.data.paid)
+  })
+
+  it('an older equal split without stored settings reopens as exact amounts', () => {
+    const legacy = {
+      ...saved,
+      data: { ...saved.data, mode: 'equal' as const, owed: { '101': 1234, '202': 1233, '303': 1233 } },
+    }
+    const draft = draftFromSplit(legacy, () => crypto.randomUUID())
+    expect(draft.settings.mode).toBe('exact')
+    expect(draft.settings.exact).toEqual(legacy.data.owed)
   })
 })

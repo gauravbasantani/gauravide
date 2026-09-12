@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Sheet } from '@/components/ui/Sheet'
 import { AvatarToggle, colourOf, initialsOf } from './AvatarToggle'
+import { ItemSplitSheet } from './ItemSplitSheet'
 import { formatMoney, parseMoney } from '@/lib/money'
 import { computeSplit } from '@/lib/split'
-import { itemKey, type ExtractedReceipt } from '@/lib/receipt'
+import { itemKey, unitCount, type ExtractedReceipt } from '@/lib/receipt'
 import type { Person, SplitSettings } from '@/lib/draft'
 import type { SwPerson } from '@/lib/useSplitwise'
 import {
@@ -36,8 +37,18 @@ type Props = {
   onAssignments: (a: Record<string, string[]>) => void
   onSettings: (settings: SplitSettings) => void
   onAddSplitwisePerson?: (input: { name: string; email: string }) => Promise<SwPerson>
+  /** Turn a quantity line into separate unit lines (tomatoes ×4). */
+  onSplitUnits?: (itemId: string) => void
+  /** Signed out (and not still checking): lead with Splitwise sign-in. */
+  canSignIn?: boolean
+  /** Link a name-only person to a Splitwise friend (FR-40). */
+  onReplacePerson?: (oldId: string, person: Person) => void
   onBack: () => void
   onNext: () => void
+}
+
+function omit<T>(record: Record<string, T>, key: string): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key))
 }
 
 export function AssignStep({
@@ -51,9 +62,14 @@ export function AssignStep({
   onAssignments,
   onSettings,
   onAddSplitwisePerson,
+  onSplitUnits,
+  canSignIn,
+  onReplacePerson,
   onBack,
   onNext,
 }: Props) {
+  const [splitting, setSplitting] = useState<string | null>(null)
+  const [linking, setLinking] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
@@ -68,6 +84,7 @@ export function AssignStep({
   function closeAddPerson() {
     setAdding(false)
     setAddError(null)
+    setLinking(null)
     // The sheet owns focus while it is open. Return it to the trigger after.
     window.requestAnimationFrame(() => addPersonTrigger.current?.focus())
   }
@@ -87,14 +104,16 @@ export function AssignStep({
     if (plan.ok) return plan.owed
     if (settings.mode === 'items') {
       return computeSplit({
-        items: planItems(receipt, assignments),
+        items: planItems(receipt, assignments, settings.itemSplits),
         people: people.map((p) => p.id),
         taxLines: receipt.taxLines,
         taxCents: receipt.taxCents,
         tipCents: receipt.tipCents,
         feeCents: receipt.feeCents,
         totalCents: total,
-      }).shares
+        // Items only while incomplete: spreading tax across people who have
+        // nothing yet showed "$3.09" before a single tap.
+      }).itemSubtotals
     }
     if (settings.mode === 'exact') return settings.exact
     return {}
@@ -111,6 +130,10 @@ export function AssignStep({
       ? current.filter((p) => p !== personId)
       : [...current, personId]
     onAssignments({ ...assignments, [itemId]: next })
+    // Tapping faces means "split evenly between these people" again.
+    if (settings.itemSplits[itemId]) {
+      onSettings({ ...settings, itemSplits: omit(settings.itemSplits, itemId) })
+    }
   }
 
   function assignEveryoneToEverything() {
@@ -137,6 +160,18 @@ export function AssignStep({
     closeAddPerson()
   }
 
+  /** A friend was chosen in the sheet: link the name being linked, or add them. */
+  function pick(person: Person) {
+    if (linking && onReplacePerson) {
+      onReplacePerson(linking, person)
+      setNewName('')
+      setNewEmail('')
+      closeAddPerson()
+      return
+    }
+    addPerson(person)
+  }
+
   function removePerson(id: string) {
     onPeople(people.filter((p) => p.id !== id))
     onAssignments(
@@ -155,7 +190,7 @@ export function AssignStep({
     setAddError(null)
     try {
       const person = await onAddSplitwisePerson({ name: newName.trim(), email: newEmail.trim() })
-      addPerson({ id: String(person.id), name: person.name })
+      pick({ id: String(person.id), name: person.name })
     } catch (error) {
       setAddError(error instanceof Error ? error.message : 'Couldn’t add that person to Splitwise.')
     } finally {
@@ -169,6 +204,11 @@ export function AssignStep({
       : plan.ok && plan.taxMethod === 'by-taxable-subtotal'
         ? 'Tax is shared across the taxable items.'
         : 'Tax, tip and fees follow each person’s share of the items.'
+
+  const splittingIndex = splitting
+    ? receipt.items.findIndex((item, i) => itemKey(item, i) === splitting)
+    : -1
+  const splittingItem = splittingIndex >= 0 ? receipt.items[splittingIndex] : undefined
 
   const included = includedIds(settings, people)
   const weights = filledWeights(settings, people)
@@ -217,7 +257,28 @@ export function AssignStep({
               <span style={{ background: 'var(--person-2)' }}>B</span>
               <span style={{ background: 'var(--person-3)' }}>C</span>
             </span>
-            <p>Nobody here yet. Start with you, then add the others.</p>
+            {canSignIn ? (
+              <a className={styles.signIn} href="/api/auth/login?next=/new">
+                <span className={styles.signInMark} aria-hidden="true">
+                  S
+                </span>
+                <span className={styles.signInText}>
+                  <strong>Sign in with Splitwise to add friends</strong>
+                  <small>
+                    Pick the people you already split with, then send it in one tap. Your receipt
+                    is saved while you sign in.
+                  </small>
+                </span>
+                <span className={styles.signInArrow} aria-hidden="true">
+                  →
+                </span>
+              </a>
+            ) : null}
+            <p>
+              {canSignIn
+                ? 'Or type names just for this split — you can link them to Splitwise later.'
+                : 'Nobody here yet. Start with you, then add the others.'}
+            </p>
             <div className={styles.emptyActions}>
               {me ? (
                 <Button onClick={() => addPerson({ id: String(me.id), name: me.name })}>
@@ -247,6 +308,21 @@ export function AssignStep({
                   {p.name}
                   {p.id === meId ? <span className={styles.you}> (you)</span> : null}
                 </span>
+                {available && onReplacePerson && !/^\d+$/.test(p.id) ? (
+                  <button
+                    type="button"
+                    className={styles.linkButton}
+                    aria-label={`Link ${p.name} to a Splitwise friend`}
+                    onClick={() => {
+                      setAddError(null)
+                      setLinking(p.id)
+                      setNewName(p.name)
+                      setAdding(true)
+                    }}
+                  >
+                    Link
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={styles.chipRemove}
@@ -272,6 +348,19 @@ export function AssignStep({
             </li>
           </ul>
         )}
+        {people.length > 0 && canSignIn ? (
+          <p className={styles.signInNote}>
+            These names stay on this device.{' '}
+            <a href="/api/auth/login?next=/new">Sign in with Splitwise</a> to link them to real
+            friends and send the expense — nothing here is lost.
+          </p>
+        ) : null}
+        {available && people.some((p) => !/^\d+$/.test(p.id)) ? (
+          <p className={styles.signInNote}>
+            Tap <strong>Link</strong> on a name to connect it to a Splitwise friend — needed before
+            sending.
+          </p>
+        ) : null}
       </section>
 
       {/* ── 2. How to split ───────────────────────────────────── */}
@@ -335,6 +424,20 @@ export function AssignStep({
                     const assigned = assignments[id] ?? []
                     const none = assigned.length === 0
                     const label = item.name || `Item ${i + 1}`
+                    const custom = settings.itemSplits[id]
+                    const customLabel = custom
+                      ? people
+                          .filter((p) => (custom.values[p.id] ?? 0) !== 0)
+                          .map(
+                            (p) =>
+                              `${p.name.split(' ')[0]} ${
+                                custom.kind === 'shares'
+                                  ? `×${custom.values[p.id]}`
+                                  : formatMoney(custom.values[p.id] ?? 0, currency)
+                              }`,
+                          )
+                          .join(' · ')
+                      : ''
                     return (
                       <li
                         key={id}
@@ -365,12 +468,26 @@ export function AssignStep({
                           ))}
                           {none ? (
                             <span className={styles.warn}>Tap who had this</span>
+                          ) : custom ? (
+                            <span className={styles.customChip}>{customLabel}</span>
                           ) : assigned.length > 1 ? (
                             <span className={styles.shared}>
-                              Shared {assigned.length} ways ·{' '}
-                              {formatMoney(Math.trunc(item.cents / assigned.length), currency)} each
+                              Shared {assigned.length} ways · about{' '}
+                              {formatMoney(Math.round(item.cents / assigned.length), currency)} each
                             </span>
                           ) : null}
+                          <button
+                            type="button"
+                            className={styles.splitButton}
+                            aria-label={`Split ${label} unevenly`}
+                            onClick={() => setSplitting(id)}
+                          >
+                            {custom
+                              ? 'Edit split'
+                              : unitCount(item) >= 2
+                                ? `Split ${unitCount(item)} units…`
+                                : 'Split unevenly'}
+                          </button>
                         </div>
                       </li>
                     )
@@ -497,6 +614,7 @@ export function AssignStep({
           ) : null}
 
           <div className={styles.running} aria-live="polite" aria-atomic="true">
+            <span className={styles.runningLabel}>{plan.ok ? 'Each owes' : 'So far'}</span>
             {people.map((p) => (
               <span key={p.id} className={styles.runner}>
                 <span
@@ -525,11 +643,54 @@ export function AssignStep({
         </div>
       </div>
 
+      <ItemSplitSheet
+        item={
+          splitting && splittingItem
+            ? {
+                id: splitting,
+                name: splittingItem.name || `Item ${splittingIndex + 1}`,
+                cents: splittingItem.cents,
+                qty: splittingItem.qty,
+              }
+            : null
+        }
+        people={people}
+        currency={currency}
+        assigned={splitting ? (assignments[splitting] ?? []) : []}
+        split={splitting ? settings.itemSplits[splitting] : undefined}
+        onSplitUnits={
+          onSplitUnits && splitting
+            ? () => {
+                onSplitUnits(splitting)
+                setSplitting(null)
+              }
+            : undefined
+        }
+        onSave={(ids, split) => {
+          if (!splitting) return
+          onAssignments({ ...assignments, [splitting]: ids })
+          onSettings({
+            ...settings,
+            itemSplits: split
+              ? { ...settings.itemSplits, [splitting]: split }
+              : omit(settings.itemSplits, splitting),
+          })
+          setSplitting(null)
+        }}
+        onClose={() => setSplitting(null)}
+      />
+
       <Sheet
         open={adding}
-        title="Add someone to this split"
+        title={
+          linking
+            ? `Link “${people.find((p) => p.id === linking)?.name ?? ''}” to Splitwise`
+            : 'Add someone to this split'
+        }
         description={
-          available
+          linking
+            ? 'Pick the Splitwise friend this is. Their items, shares and payments move over.'
+            : available
             ? 'Pick a Splitwise friend, or add someone new by email — Splitwise finds their account or sends them an invite.'
             : 'Type a name. To add the expense to Splitwise later, sign in so you can pick real friends.'
         }
@@ -565,7 +726,7 @@ export function AssignStep({
                 key={f.id}
                 type="button"
                 className={styles.friend}
-                onClick={() => addPerson({ id: String(f.id), name: f.name })}
+                onClick={() => pick({ id: String(f.id), name: f.name })}
               >
                 <span
                   className={styles.friendAvatar}
@@ -602,9 +763,11 @@ export function AssignStep({
                 if (e.key === 'Enter') void addByEmail()
               }}
             />
-            <Button variant="tertiary" onClick={() => addPerson()} disabled={!newName.trim()}>
-              Add only to this split (not Splitwise)
-            </Button>
+            {!linking ? (
+              <Button variant="tertiary" onClick={() => addPerson()} disabled={!newName.trim()}>
+                Add only to this split (not Splitwise)
+              </Button>
+            ) : null}
           </>
         ) : null}
         {addError ? (
