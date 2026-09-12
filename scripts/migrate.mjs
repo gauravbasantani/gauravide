@@ -32,13 +32,22 @@ function connectionString() {
   const direct = get('SUPABASE_DB_URL')
   if (direct) return direct
 
+  // Pasting the whole connection string into the password field is an easy
+  // mistake to make. Accept it rather than failing with "auth failed".
+  const password = get('SUPABASE_DB_PASSWORD') ?? ''
+  if (password.startsWith('postgresql://') || password.startsWith('postgres://')) {
+    console.warn('note: SUPABASE_DB_PASSWORD holds a connection string — using it as the URL\n')
+    return password
+  }
+
   const url = get('SUPABASE_URL')
-  const password = get('SUPABASE_DB_PASSWORD')
   if (!url || !password) return null
 
-  // https://<ref>.supabase.co → the pooler host for that project
+  // Direct connection. Deliberately NOT the pooler: pooler hostnames embed a
+  // region we cannot know from the project URL, and guessing it produces a
+  // confusing "password authentication failed" instead of a clear error.
   const ref = new URL(url).hostname.split('.')[0]
-  return `postgresql://postgres.${ref}:${encodeURIComponent(password)}@aws-0-us-west-1.pooler.supabase.com:6543/postgres`
+  return `postgresql://postgres:${encodeURIComponent(password)}@db.${ref}.supabase.co:5432/postgres`
 }
 
 const conn = connectionString()
@@ -76,7 +85,20 @@ for (const file of files) {
     console.log('ok')
   } catch (err) {
     console.log('FAILED')
-    console.error(String(err.stderr ?? err.message).slice(0, 600))
+    const detail = String(err.stderr ?? err.message)
+    console.error(detail.slice(0, 600))
+    if (/password authentication failed/i.test(detail)) {
+      console.error(
+        '\nThe password in the connection string is wrong. Supabase → Settings →\n' +
+          'Database → Reset database password, then update SUPABASE_DB_URL.',
+      )
+    } else if (/could not translate host|Network is unreachable|no route to host/i.test(detail)) {
+      console.error(
+        '\nCannot reach the host. Direct connections are IPv6-only on Supabase;\n' +
+          'use the Session pooler connection string instead (Settings → Database →\n' +
+          'Connection string → Session pooler).',
+      )
+    }
     process.exit(1)
   }
 }
