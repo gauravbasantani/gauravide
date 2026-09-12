@@ -1,0 +1,37 @@
+{
+  "name": "gauravide",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Split a receipt in 30 seconds — scan, assign, and push to Splitwise.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run check:contrast && npm run test"
+  },
+  "dependencies": {
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.2.0",
+    "@types/node": "22.10.7",
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "@vitejs/plugin-react": "4.3.4",
+    "eslint": "9.18.0",
+    "eslint-config-next": "15.1.6",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "jsdom": "26.0.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.3",
+    "vitest": "3.0.4"
+  }
+}

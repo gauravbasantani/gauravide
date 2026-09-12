@@ -1,0 +1,93 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(15 23 42 / 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade var(--motion-base) var(--ease-out);
+}
+
+/* Bottom sheet on phones — thumb-reachable. Centred modal on desktop. */
+@media (min-width: 1024px) {
+  .backdrop {
+    align-items: center;
+  }
+}
+
+/* Invisible dismiss target covering the backdrop. Focusable, so Tab reaches
+   it and a screen reader announces "Close". */
+.scrim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6) var(--gutter);
+  padding-bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  animation: rise var(--motion-slow) var(--ease-out);
+}
+
+@media (min-width: 1024px) {
+  .panel {
+    border-radius: var(--radius-lg);
+    padding-bottom: var(--space-6);
+  }
+}
+
+.title {
+  font-size: var(--text-section);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.desc {
+  font-size: var(--text-meta);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-5);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .actions {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    transform: translateY(16px);
+  }
+}

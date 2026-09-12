@@ -1,0 +1,123 @@
+.base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px; /* UX-23 / WCAG 2.5.8 */
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.base:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.base:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* ── Variants ───────────────────────────────── */
+.primary {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+.primary:not(:disabled):hover {
+  background: var(--primary-hover);
+}
+.primary:not(:disabled):active {
+  background: var(--primary-active);
+}
+
+.secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-interactive); /* 3.74:1 — WCAG 1.4.11 */
+}
+.secondary:not(:disabled):hover {
+  background: var(--bg-subtle);
+}
+
+.tertiary {
+  background: transparent;
+  color: var(--primary);
+  padding-inline: var(--space-2);
+  font-weight: 500;
+}
+.tertiary:not(:disabled):hover {
+  background: var(--primary-subtle);
+}
+
+.destructive {
+  background: var(--danger);
+  color: #ffffff; /* 4.70:1 */
+}
+.destructive:not(:disabled):hover {
+  background: var(--danger-hover);
+}
+
+/* ── Modifiers ──────────────────────────────── */
+.full {
+  width: 100%;
+}
+
+/* Width is locked while loading so the layout never jumps. */
+.loading {
+  position: relative;
+  color: transparent;
+}
+.loading > .label {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.spinner::after {
+  content: '';
+  width: 1.125rem;
+  height: 1.125rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  color: var(--primary-on);
+  animation: spin 700ms linear infinite;
+}
+.secondary .spinner::after,
+.tertiary .spinner::after {
+  color: var(--text);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reason a button is disabled — never leave it unexplained (UX §4). */
+.reason {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.wrap {
+  display: inline-block;
+}
+.wrapFull {
+  display: block;
+  width: 100%;
+}

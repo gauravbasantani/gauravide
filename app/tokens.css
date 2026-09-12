@@ -1,0 +1,185 @@
+/**
+ * Gauravide design tokens — DESIGN-SYSTEM.md §2–3.
+ *
+ * Every value here is contrast-verified; `npm run check:contrast` fails the
+ * build if a pair drops below its WCAG 2.2 threshold. Do not hard-code a
+ * colour, space, radius or duration anywhere else in the app.
+ */
+
+:root {
+  /* ── Brand ─────────────────────────────────────────────── */
+  --primary: #4f46e5; /* 6.29:1 on white */
+  --primary-hover: #4338ca;
+  --primary-active: #3730a3;
+  --primary-subtle: #eef2ff;
+  --primary-on: #ffffff; /* 6.29:1 on --primary */
+
+  --secondary: #f59e0b; /* fills and large marks ONLY — 2.15:1 */
+  --secondary-strong: #b45309; /* 5.02:1 — small indicators, the "invited" dot */
+  --secondary-subtle: #fffbeb;
+
+  /* ── Semantic ──────────────────────────────────────────── */
+  --success: #059669; /* large icons only — 3.77:1 */
+  --success-text: #047857; /* 5.48:1 */
+  --success-fill: #047857; /* white label on fill: 5.48:1 */
+  --success-subtle: #ecfdf5;
+
+  --warning: #d97706; /* large icons only — 3.19:1 */
+  --warning-text: #b45309; /* 5.02:1 */
+  --warning-fill: #b45309;
+  --warning-subtle: #fffbeb;
+
+  --danger: #e11d48; /* white label on fill: 4.70:1 */
+  --danger-text: #be123c; /* 6.29:1 — error messages */
+  --danger-hover: #be123c;
+  --danger-subtle: #fff1f2;
+
+  /* ── Neutrals ──────────────────────────────────────────── */
+  --bg: #ffffff;
+  --bg-subtle: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0; /* 1.23:1 — DECORATIVE dividers only */
+  --border-strong: #cbd5e1; /* 1.48:1 — decorative emphasis only */
+  --border-interactive: #78859a; /* 3.74:1 — control boundaries (WCAG 1.4.11) */
+
+  --text: #0f172a; /* 17.85:1 */
+  --text-muted: #64748b; /* 4.76:1 — helper text, captions, placeholders */
+  --text-subtle: #94a3b8; /* 2.56:1 — DECORATIVE ONLY, never text */
+
+  /* Solid ring with a bg-coloured gap. A translucent ring blends toward the
+     background (1.76:1) and fails the people who need it most. */
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--primary);
+
+  /* ── Person colours — DECORATIVE. Initials carry identity. ─ */
+  --person-1: #4338ca;
+  --person-2: #0f766e;
+  --person-3: #9f1239;
+  --person-4: #92400e;
+  --person-5: #6d28d9;
+  --person-6: #155e75;
+  --person-7: #065f46;
+  --person-8: #86198f;
+  --person-on: #ffffff;
+
+  /* ── Space (4px base) ──────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* ── Radius ────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* ── Elevation (light mode only; dark uses borders) ────── */
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.16);
+
+  /* ── Type ──────────────────────────────────────────────── */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-display: 2rem;
+  --text-title: 1.5rem;
+  --text-section: 1.125rem;
+  --text-body: 1rem;
+  --text-meta: 0.875rem;
+  --text-caption: 0.8125rem;
+  --text-label: 0.75rem;
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Layout ────────────────────────────────────────────── */
+  --gutter: var(--space-4);
+  --max-width: 100%;
+  --cta-height: 3.25rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --gutter: var(--space-6);
+    --max-width: 45rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: var(--space-8);
+    --max-width: 70rem;
+  }
+}
+
+/* ── Dark mode — designed, not inverted ──────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --primary: #818cf8; /* 4.90:1 on --surface */
+    --primary-hover: #a5b4fc;
+    --primary-active: #c7d2fe;
+    --primary-subtle: #1e1b4b;
+    --primary-on: #1e1b4b; /* 5.36:1 on --primary */
+
+    --secondary: #fbbf24;
+    --secondary-strong: #fbbf24; /* 8.76:1 on --surface */
+    --secondary-subtle: #292010;
+
+    --success: #34d399;
+    --success-text: #34d399;
+    --success-fill: #065f46;
+    --success-subtle: #022c22;
+
+    --warning: #fbbf24;
+    --warning-text: #fbbf24;
+    --warning-fill: #92400e;
+    --warning-subtle: #292010;
+
+    --danger: #fb7185;
+    --danger-text: #fb7185;
+    --danger-hover: #fda4af;
+    --danger-subtle: #2a1218;
+
+    --bg: #0b1120;
+    --bg-subtle: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --border-strong: #475569;
+    --border-interactive: #8794a6; /* 4.75:1 on --surface */
+
+    --text: #f1f5f9;
+    --text-muted: #94a3b8; /* 5.71:1 on --surface */
+    --text-subtle: #64748b;
+
+    /* Lighter fills need DARK initials — white would fail here. */
+    --person-1: #a5b4fc;
+    --person-2: #5eead4;
+    --person-3: #fda4af;
+    --person-4: #fcd34d;
+    --person-5: #c4b5fd;
+    --person-6: #67e8f9;
+    --person-7: #6ee7b7;
+    --person-8: #f0abfc;
+    --person-on: #0b1120;
+
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* Explicit override wins in both directions. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
