@@ -15,3 +15,5 @@ dist/
 # receipts used for testing — real financial documents, keep them local
 receipts/
 *.receipt.jpg
+.vercel
+.env*
