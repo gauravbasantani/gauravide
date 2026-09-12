@@ -2,17 +2,22 @@
   "name": "gauravide",
   "version": "0.1.0",
   "private": true,
-  "description": "Split a receipt in 30 seconds — scan, assign, and push to Splitwise.",
+  "description": "Split a receipt in 30 seconds \u2014 scan, assign, and push to Splitwise.",
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "clean": "rm -rf .next",
+    "dev": "next dev",
+    "e2e": "npm run clean && npm run build && playwright test",
+    "e2e:only": "playwright test",
+    "e2e:ui": "playwright test --ui",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:contrast": "node scripts/check-contrast.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run check:contrast && npm run test"
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run lint && npm run check:contrast && npm run test",
+    "verify:all": "npm run verify && npm run build && npm run e2e"
   },
   "dependencies": {
     "next": "15.1.6",
@@ -22,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.2.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "22.10.7",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",

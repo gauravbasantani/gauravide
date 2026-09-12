@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { extractReceipt, ExtractionUnavailable } from '@/lib/receipt'
 import { getSession, writeSession, ownerId } from '@/lib/session'
 import { rateLimit } from '@/lib/ratelimit'
+import { stripJpegMetadata } from '@/lib/exif'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -89,8 +90,13 @@ export async function POST(req: Request) {
   }
 
   // 4. Delegate.
+  //    Strip EXIF server-side as well. The browser normally does it by
+  //    re-encoding through a canvas, but that silently failed on mobile
+  //    Safari — so GPS must not depend on the client succeeding (GAP-4).
+  const clean = mimeType === 'image/jpeg' ? stripJpegMetadata(bytes) : bytes
+
   try {
-    const result = await extractReceipt(Buffer.from(bytes).toString('base64'), mimeType)
+    const result = await extractReceipt(Buffer.from(clean).toString('base64'), mimeType)
     await writeSession(session)
 
     // 5. Respond. rawText is dropped: it is receipt content, and the client

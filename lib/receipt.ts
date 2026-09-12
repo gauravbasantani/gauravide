@@ -222,44 +222,119 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
   }
 }
 
-/** Pull "NAME .... 12.34" pairs out of OCR text. Deliberately conservative. */
+/**
+ * Turn raw OCR text into a draft receipt.
+ *
+ * This is the second rung of the provider ladder, and it has to actually
+ * work — a fallback that returns nothing is decoration. OCR.space emits
+ * tab-separated columns:
+ *
+ *   512599 KS TOWEL\t20.79 A\t
+ *   SUBTOTAL\t102.33\t
+ *   A 8.1% TAX\t5.57\t
+ *
+ * so we split on tabs (or runs of spaces), take the last field that looks
+ * like money, and treat what precedes it as the label.
+ */
+const MONEY = /(-?\$?\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(-?)\s*([A-Z])?\s*$/
+
+/** Lines that are payment plumbing, not things anyone ate. */
+const NOT_AN_ITEM =
+  /\b(CHANGE|CASH|VISA|MASTERCARD|AMEX|DEBIT|CREDIT|CARD|BALANCE|APPROVED|AUTH|CHIP|SEQ|AID|RESP|TEND(ER)?|ACCOUNT|MEMBER|ITEMS SOLD|TOTAL NUMBER)\b/i
+
 export function parseLines(text: string): ExtractedReceipt {
   const items: ExtractedItem[] = []
+  const taxLines: { flag: string; cents: number }[] = []
   let totalCents: number | null = null
   let subtotalCents: number | null = null
-  let taxCents = 0
+  let taxCents: number | null = null
+  let merchant: string | null = null
+  let date: string | null = null
 
-  for (const line of text.split(/\r?\n/)) {
-    const m = line.match(/^(.*?)[\s.]{2,}?(-?\$?\d{1,3}(?:[.,]\d{3})*[.,]\d{2})-?\s*([A-Z])?\s*$/)
-    if (!m) continue
-    const label = (m[1] ?? '').trim()
-    const amount = toCents(m[2] ?? '')
-    if (amount === null || label === '') continue
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/\s+$/, '')
+    if (!line.trim()) continue
 
-    const key = label.toUpperCase()
-    if (/\bTOTAL\b/.test(key) && !/SUB/.test(key)) totalCents = amount
-    else if (/SUBTOTAL/.test(key)) subtotalCents = amount
-    else if (/\bTAX\b/.test(key)) taxCents += amount
-    else if (!/CHANGE|CASH|VISA|CARD|BALANCE|APPROVED|AMOUNT/.test(key)) {
-      const negative = /-\s*$/.test(line)
-      items.push({
-        name: label.slice(0, 120),
-        qty: 1,
-        cents: negative ? -Math.abs(amount) : amount,
-        ...(m[3] ? { taxFlag: m[3] } : {}),
-        confidence: 0.5,
-      })
+    // Merchant: the first meaningful line, before any prices appear.
+    if (merchant === null && !MONEY.test(line) && /[A-Za-z]{3}/.test(line)) {
+      merchant = line.split(/\t|\s{2,}/)[0]?.trim().slice(0, 120) ?? null
     }
+
+    if (date === null) {
+      const d = line.match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/)
+      if (d) date = `${d[3]}-${d[1]}-${d[2]}`
+    }
+
+    // Columns, then the last one that looks like money.
+    const fields = line.split(/\t|\s{2,}/).map((f) => f.trim()).filter(Boolean)
+    if (fields.length === 0) continue
+
+    let amountField: string | null = null
+    let amountIndex = -1
+    for (let i = fields.length - 1; i >= 0; i--) {
+      const field = fields[i]
+      if (field && MONEY.test(field)) {
+        amountField = field
+        amountIndex = i
+        break
+      }
+    }
+    if (!amountField) continue
+
+    const m = amountField.match(MONEY)
+    if (!m) continue
+
+    const cents = toCents(m[1] ?? '')
+    if (cents === null) continue
+
+    // Costco prints negatives as a trailing minus, sometimes before the flag.
+    const negative = Boolean(m[2]) || /-\s*[A-Z]?\s*$/.test(amountField)
+    const flag = m[3]
+    const label = fields.slice(0, amountIndex).join(' ').trim()
+    const key = label.toUpperCase()
+
+    // Per-rate tax lines: "A 8.1% TAX  5.57"
+    const rateTax = key.match(/^([A-Z])\s+[\d.]+%\s*TAX$/)
+    if (rateTax?.[1]) {
+      taxLines.push({ flag: rateTax[1], cents })
+      continue
+    }
+    if (/^TOTAL TAX$/.test(key) || (/\bTAX\b/.test(key) && !/^[A-Z]\s/.test(key))) {
+      taxCents = cents
+      continue
+    }
+    if (/SUBTOTAL/.test(key)) {
+      subtotalCents = cents
+      continue
+    }
+    if (/\bTOTAL\b/.test(key) && !/SUB/.test(key)) {
+      totalCents = cents
+      continue
+    }
+    // "INSTANT SAVINGS  $3.00" is a discount already applied to a line above.
+    if (/SAVINGS|DISCOUNT|COUPON/.test(key)) continue
+    if (!label || NOT_AN_ITEM.test(key)) continue
+
+    items.push({
+      name: label.slice(0, 120),
+      qty: 1,
+      cents: negative ? -Math.abs(cents) : cents,
+      ...(flag ? { taxFlag: flag } : {}),
+      confidence: 0.55, // OCR text, not a structured read — flag for review
+    })
   }
 
+  // Prefer the per-rate breakdown; fall back to the single printed total.
+  const summedTaxLines = taxLines.reduce((a, t) => a + t.cents, 0)
+
   return ExtractedReceipt.parse({
-    merchant: null,
-    date: null,
+    merchant,
+    date,
     currency: 'USD',
     items,
-    taxLines: [],
+    taxLines,
     subtotalCents,
-    taxCents,
+    taxCents: taxLines.length > 0 ? summedTaxLines : (taxCents ?? 0),
     tipCents: 0,
     feeCents: 0,
     totalCents,
