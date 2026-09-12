@@ -149,7 +149,7 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </div>
         <div className={styles.selectedActions}>
           <Button full onClick={() => void extract()}>
-            Read this receipt
+            Next: read this receipt
           </Button>
           {picker('Choose a different file', styles.fakeSecondary)}
           <Button variant="tertiary" onClick={onManual}>

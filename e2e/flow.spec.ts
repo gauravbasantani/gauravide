@@ -34,6 +34,7 @@ test.describe('the whole split, end to end', () => {
     await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
     await expect(page.getByText(/receipt ready/i)).toBeVisible()
     await expect(page.getByAltText(/preview of the receipt/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: /next: read this receipt/i })).toBeVisible()
     await page.getByRole('button', { name: /read this receipt/i }).click()
     await expect(page.getByText(/reading your receipt/i)).toBeVisible()
 
@@ -100,5 +101,53 @@ test.describe('the whole split, end to end', () => {
     await page.getByLabel(/^tax$/i).fill('2.00')
     await page.getByRole('button', { name: /looks right/i }).click()
     await expect(page.getByRole('heading', { name: /who shares what/i })).toBeVisible()
+  })
+
+  test('a signed-in split can review and publish to Splitwise', async ({ page }) => {
+    const posted: { groupId?: number; totalCents?: number; items?: unknown[] } = {}
+
+    await page.route('**/api/splitwise/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          signedIn: true,
+          me: { id: 101, name: 'Gaurav' },
+          friends: [{ id: 202, name: 'Alex' }],
+          groups: [{ id: 303, name: 'Trip', updatedAt: '2026-09-01', members: [{ id: 101, name: 'Gaurav' }, { id: 202, name: 'Alex' }] }],
+        }),
+      })
+    })
+    await page.route('**/api/splitwise/expense', async (route) => {
+      posted.groupId = route.request().postDataJSON()?.groupId
+      posted.totalCents = route.request().postDataJSON()?.totalCents
+      posted.items = route.request().postDataJSON()?.items
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 98765 }),
+      })
+    })
+
+    await page.goto('/new')
+    await page.getByRole('button', { name: 'Type it in' }).click()
+    await page.getByLabel(/item 1 name/i).fill('Dinner')
+    await page.getByLabel(/price of/i).fill('48.00')
+    await page.getByRole('button', { name: /looks right/i }).click()
+
+    await page.getByRole('button', { name: /add person/i }).click()
+    await page.getByRole('button', { name: 'Gaurav' }).click()
+    await page.getByRole('button', { name: /add person/i }).click()
+    await page.getByRole('button', { name: 'Alex' }).click()
+    await page.getByRole('button', { name: /everyone shares everything/i }).click()
+    await page.getByRole('button', { name: /^review$/i }).click()
+
+    await expect(page.getByRole('heading', { name: /^ready$/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /add to splitwise/i })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Trip' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: /add to splitwise/i }).click()
+    await expect(page.getByRole('status')).toContainText(/added to splitwise/i)
+    expect(posted).toMatchObject({ groupId: 303, totalCents: 4800 })
+    expect(posted.items).toHaveLength(1)
   })
 })

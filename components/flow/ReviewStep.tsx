@@ -147,12 +147,25 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
         <div className={styles.add}>
           <Button
             variant="tertiary"
-            onClick={() =>
+            onClick={() => {
+              // Manual entry opens with one blank starter row. Treat the first
+              // "Add item" tap as an invitation to use that row rather than
+              // creating a confusing duplicate blank line.
+              const starter =
+                receipt.items.length === 1 &&
+                receipt.items[0]?.name.trim() === '' &&
+                receipt.items[0]?.cents === 0
+              if (starter) {
+                window.requestAnimationFrame(() => {
+                  document.querySelector<HTMLInputElement>('[aria-label="Item 1 name"]')?.focus()
+                })
+                return
+              }
               onChange({
                 ...receipt,
                 items: [...receipt.items, { name: '', qty: 1, cents: 0, confidence: 1 }],
               })
-            }
+            }}
           >
             + Add item
           </Button>

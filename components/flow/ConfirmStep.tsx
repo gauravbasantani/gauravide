@@ -1,13 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { colourOf } from './AvatarToggle'
 import { formatMoney } from '@/lib/money'
 import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import type { Person } from '@/lib/draft'
-import type { SwGroup, SwPerson } from '@/lib/useSplitwise'
+import { rankGroups, type SwGroup, type SwPerson } from '@/lib/useSplitwise'
 import { GroupPicker } from './GroupPicker'
 import styles from './ConfirmStep.module.css'
 import flow from './flow.module.css'
@@ -48,6 +48,16 @@ export function ConfirmStep({
     .filter((p) => /^\d+$/.test(p.id))
     .map((p) => ({ id: Number(p.id), name: p.name }))
   const canPush = Boolean(signedIn) && swPeople.length === people.length && people.length > 0
+  const suggestedGroupId = useMemo(() => {
+    if (!groups || groups.length === 0) return 0
+    return rankGroups(groups, swPeople.map((person) => person.id))[0]?.id ?? 0
+  }, [groups, swPeople])
+
+  // Make the safe, common choice available immediately. The user can still
+  // pick another group or no group before submitting.
+  useEffect(() => {
+    if (canPush) setGroupId((current) => current ?? suggestedGroupId)
+  }, [canPush, suggestedGroupId])
 
   const total =
     receipt.totalCents ??

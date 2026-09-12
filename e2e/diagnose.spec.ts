@@ -46,6 +46,7 @@ test('what does the browser actually upload?', async ({ page }) => {
 
   await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
   await expect(page.getByText(/receipt ready/i)).toBeVisible()
+  await expect(page.getByRole('button', { name: /next: read this receipt/i })).toBeVisible()
   await page.getByRole('button', { name: /read this receipt/i }).click()
   await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible({
     timeout: 90_000,
