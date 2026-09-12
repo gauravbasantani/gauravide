@@ -9,12 +9,15 @@ import { formatMoney } from '@/lib/money'
 import { computeSplit, type Item } from '@/lib/split'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import type { Person } from '@/lib/draft'
+import type { SwPerson } from '@/lib/useSplitwise'
 import styles from './AssignStep.module.css'
 import flow from './flow.module.css'
 
 type Props = {
   receipt: ExtractedReceipt
   people: Person[]
+  /** Splitwise friends, when signed in. Absent means manual names. */
+  available?: SwPerson[]
   assignments: Record<string, string[]>
   onPeople: (people: Person[]) => void
   onAssignments: (a: Record<string, string[]>) => void
@@ -25,6 +28,7 @@ type Props = {
 export function AssignStep({
   receipt,
   people,
+  available,
   assignments,
   onPeople,
   onAssignments,
@@ -82,10 +86,11 @@ export function AssignStep({
     onAssignments(Object.fromEntries(receipt.items.map((_, i) => [String(i), all])))
   }
 
-  function addPerson() {
-    const name = newName.trim()
+  function addPerson(picked?: Person) {
+    const name = picked?.name ?? newName.trim()
     if (!name) return
-    const person: Person = { id: crypto.randomUUID(), name }
+    const person: Person = picked ?? { id: crypto.randomUUID(), name }
+    if (people.some((p) => p.id === person.id)) return
     const next = [...people, person]
     onPeople(next)
     // A new person joins every line that already has everyone on it, which is
@@ -233,21 +238,43 @@ export function AssignStep({
       <Sheet
         open={adding}
         title="Add someone"
-        description="Just a name for now — Splitwise friends arrive when sign-in does."
+        description={
+          available
+            ? 'Pick a Splitwise friend, or type a name for someone not on Splitwise.'
+            : 'Sign in with Splitwise to pick real friends.'
+        }
         onClose={() => setAdding(false)}
         actions={
           <>
             <Button variant="secondary" onClick={() => setAdding(false)}>
               Cancel
             </Button>
-            <Button onClick={addPerson} disabled={!newName.trim()} disabledReason={undefined}>
+            <Button onClick={() => addPerson()} disabled={!newName.trim()}>
               Add to split
             </Button>
           </>
         }
       >
+        {available && available.length > 0 ? (
+          <div className={styles.friendList} role="group" aria-label="Your Splitwise friends">
+            {available
+              .filter((f) => !people.some((p) => p.id === String(f.id)))
+              .filter((f) => f.name.toLowerCase().includes(newName.trim().toLowerCase()))
+              .slice(0, 8)
+              .map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={styles.friend}
+                  onClick={() => addPerson({ id: String(f.id), name: f.name })}
+                >
+                  {f.name}
+                </button>
+              ))}
+          </div>
+        ) : null}
         <Field
-          label="Name"
+          label={available ? 'Search, or type a new name' : 'Name'}
           placeholder="Maya"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}

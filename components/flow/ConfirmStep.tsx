@@ -7,6 +7,8 @@ import { formatMoney } from '@/lib/money'
 import { computeSplit, settleRounding, type Item } from '@/lib/split'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import type { Person } from '@/lib/draft'
+import type { SwGroup, SwPerson } from '@/lib/useSplitwise'
+import { GroupPicker } from './GroupPicker'
 import styles from './ConfirmStep.module.css'
 import flow from './flow.module.css'
 
@@ -16,6 +18,9 @@ type Props = {
   assignments: Record<string, string[]>
   payerId: string | null
   onPayer: (id: string) => void
+  /** Present when signed in — enables the push to Splitwise. */
+  groups?: SwGroup[]
+  signedIn?: boolean
   onBack: () => void
   onDone: () => void
 }
@@ -26,10 +31,23 @@ export function ConfirmStep({
   assignments,
   payerId,
   onPayer,
+  groups,
+  signedIn,
   onBack,
   onDone,
 }: Props) {
   const [copied, setCopied] = useState(false)
+  const [groupId, setGroupId] = useState<number | null>(null)
+  const [pushing, setPushing] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+  const [pushed, setPushed] = useState<number | null>(null)
+  const [idemKey] = useState(() => crypto.randomUUID())
+
+  // Everyone in the split must be a real Splitwise user to push.
+  const swPeople: SwPerson[] = people
+    .filter((p) => /^\d+$/.test(p.id))
+    .map((p) => ({ id: Number(p.id), name: p.name }))
+  const canPush = Boolean(signedIn) && swPeople.length === people.length && people.length > 0
 
   const total =
     receipt.totalCents ??
@@ -73,6 +91,47 @@ export function ConfirmStep({
     return lines.join('\n')
   }, [receipt, people, shares, total])
 
+  async function push() {
+    if (groupId === null || !payer) return
+    setPushing(true)
+    setPushError(null)
+    try {
+      const res = await fetch('/api/splitwise/expense', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          merchant: receipt.merchant,
+          date: receipt.date,
+          currency: receipt.currency,
+          groupId,
+          payerId: Number(payer),
+          totalCents: total,
+          taxCents: receipt.taxCents,
+          tipCents: receipt.tipCents,
+          feeCents: receipt.feeCents,
+          taxLines: receipt.taxLines,
+          items: receipt.items.map((item, i) => ({
+            name: item.name || `Item ${i + 1}`,
+            cents: item.cents,
+            ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
+            people: (assignments[String(i)] ?? []).map(Number),
+          })),
+          idempotencyKey: idemKey, // a double-tap creates one expense (FR-22)
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setPushError(body.message ?? 'Couldn’t add it to Splitwise.')
+        return
+      }
+      setPushed(body.id)
+    } catch {
+      setPushError('Couldn’t reach Splitwise.')
+    } finally {
+      setPushing(false)
+    }
+  }
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(summaryText)
@@ -89,13 +148,25 @@ export function ConfirmStep({
         <h1 className="t-title">Ready</h1>
       </div>
 
-      <div className={styles.blocked}>
-        <strong>Pushing to Splitwise isn’t wired up yet.</strong>
-        <span>
-          Splitwise now requires a Pro subscription to register an app. Until then, copy the
-          summary below and add it in Splitwise — everything else here is done for you.
-        </span>
-      </div>
+      {!signedIn ? (
+        <div className={styles.blocked}>
+          <strong>Not signed in to Splitwise.</strong>
+          <span>
+            Copy the summary below and add it yourself, or{' '}
+            <a href="/api/auth/login?next=/new">sign in with Splitwise</a> to push it in one tap.
+          </span>
+        </div>
+      ) : null}
+
+      {signedIn && !canPush ? (
+        <div className={styles.blocked}>
+          <strong>Some people aren’t Splitwise friends.</strong>
+          <span>
+            Everyone in the split needs to be on Splitwise to push it. Go back and pick them from
+            your friends, or copy the summary below instead.
+          </span>
+        </div>
+      ) : null}
 
       <div className={flow.card}>
         <div className={styles.total}>
@@ -157,21 +228,75 @@ export function ConfirmStep({
         </div>
       </div>
 
+      {canPush && groups ? (
+        <div className={styles.summary}>
+          <strong>Add to</strong>
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <GroupPicker
+              groups={groups}
+              people={swPeople}
+              selectedId={groupId}
+              onSelect={setGroupId}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {pushError ? (
+        <div className={styles.blocked} role="alert" style={{ marginTop: 'var(--space-4)' }}>
+          <strong>{pushError}</strong>
+          <span>Your split is still here — nothing was lost.</span>
+        </div>
+      ) : null}
+
+      {pushed ? (
+        <div className={styles.summary} role="status">
+          <strong>✓ Added to Splitwise</strong>
+          <p className={styles.sub} style={{ marginTop: 'var(--space-2)' }}>
+            <a
+              href={`https://secure.splitwise.com/expenses/${pushed}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open it in Splitwise
+            </a>
+          </p>
+        </div>
+      ) : null}
+
       <div className={flow.cta}>
         <div className={flow.ctaInner}>
           <Button variant="secondary" onClick={onBack}>
             Back
           </Button>
-          <Button
-            full
-            onClick={onDone}
-            disabled={!reconciles}
-            disabledReason={
-              reconciles ? undefined : 'The shares don’t add up to the total — go back and check'
-            }
-          >
-            Done
-          </Button>
+          {canPush && !pushed ? (
+            <Button
+              full
+              loading={pushing}
+              onClick={push}
+              disabled={!reconciles || groupId === null}
+              disabledReason={
+                !reconciles
+                  ? 'The shares don’t add up to the total — go back and check'
+                  : groupId === null
+                    ? 'Choose where this expense should go'
+                    : undefined
+              }
+            >
+              Add to Splitwise
+            </Button>
+          ) : (
+            <Button
+              full
+              onClick={onDone}
+              disabled={!reconciles}
+              disabledReason={
+                reconciles ? undefined : 'The shares don’t add up to the total — go back and check'
+              }
+            >
+              Done
+            </Button>
+          )}
         </div>
       </div>
     </>

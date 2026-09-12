@@ -46,3 +46,38 @@
 .ctaLink:hover {
   background: var(--primary-hover);
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-8);
+}
+
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cta-height);
+  padding: 0 var(--space-5);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryLink:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.signed {
+  margin-top: var(--space-4);
+  font-size: var(--text-meta);
+  color: var(--success-text);
+}

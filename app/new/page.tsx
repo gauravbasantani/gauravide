@@ -9,6 +9,7 @@ import { ConfirmStep } from '@/components/flow/ConfirmStep'
 import { Button } from '@/components/ui/Button'
 import { clearDraft, loadDraft, saveDraft, type Draft, type Person, type Step } from '@/lib/draft'
 import type { ExtractedReceipt } from '@/lib/receipt'
+import { useSplitwise } from '@/lib/useSplitwise'
 import flow from '@/components/flow/flow.module.css'
 
 const EMPTY: ExtractedReceipt = {
@@ -26,6 +27,7 @@ const EMPTY: ExtractedReceipt = {
 
 export default function NewSplitPage() {
   const router = useRouter()
+  const sw = useSplitwise()
   const [step, setStep] = useState<Step>('upload')
   const [receipt, setReceipt] = useState<ExtractedReceipt>(EMPTY)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -119,6 +121,7 @@ export default function NewSplitPage() {
         <AssignStep
           receipt={receipt}
           people={people}
+          available={sw.signedIn ? [sw.me, ...sw.friends].filter(Boolean) as typeof sw.friends : undefined}
           assignments={assignments}
           onPeople={setPeople}
           onAssignments={setAssignments}
@@ -134,6 +137,8 @@ export default function NewSplitPage() {
           assignments={assignments}
           payerId={payerId}
           onPayer={setPayerId}
+          groups={sw.groups}
+          signedIn={sw.signedIn}
           onBack={() => setStep('assign')}
           onDone={finish}
         />
