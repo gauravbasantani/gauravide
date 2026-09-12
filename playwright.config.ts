@@ -36,5 +36,14 @@ export default defineConfig({
     url: 'http://localhost:3210',
     reuseExistingServer: false,
     timeout: 300_000,
+    // Never write to the real database from tests. Without this, .env.local
+    // pointed every test scan at production and inflated the admin numbers.
+    // These tests mock the routes that need history; the full suite
+    // (playwright.full.config.ts) covers the database against a stand-in.
+    // Set in the process, so they win over .env.local.
+    env: {
+      SUPABASE_URL: '',
+      SUPABASE_SERVICE_KEY: '',
+    },
   },
 })
