@@ -12,6 +12,13 @@ import type { ExtractedReceipt } from '@/lib/receipt'
 import { useSplitwise } from '@/lib/useSplitwise'
 import flow from '@/components/flow/flow.module.css'
 
+const FLOW_STEPS: { key: Step; label: string }[] = [
+  { key: 'upload', label: 'Add receipt' },
+  { key: 'review', label: 'Check items' },
+  { key: 'assign', label: 'Assign people' },
+  { key: 'confirm', label: 'Finish' },
+]
+
 const EMPTY: ExtractedReceipt = {
   merchant: null,
   date: null,
@@ -23,6 +30,11 @@ const EMPTY: ExtractedReceipt = {
   tipCents: 0,
   feeCents: 0,
   totalCents: null,
+}
+
+const MANUAL_START: ExtractedReceipt = {
+  ...EMPTY,
+  items: [{ name: '', qty: 1, cents: 0, confidence: 1 }],
 }
 
 export default function NewSplitPage() {
@@ -62,8 +74,40 @@ export default function NewSplitPage() {
     router.push('/')
   }
 
+  const currentStep = Math.max(
+    0,
+    FLOW_STEPS.findIndex((item) => item.key === step),
+  )
+
   return (
     <div className={[flow.page, 'shell'].join(' ')}>
+      <nav className={flow.progress} aria-label="Receipt split progress">
+        <div className={flow.progressTopline}>
+          <span className="t-label">Your split</span>
+          <span className="t-caption">Step {currentStep + 1} of 4</span>
+        </div>
+        <ol className={flow.progressList}>
+          {FLOW_STEPS.map((item, index) => (
+            <li
+              key={item.key}
+              className={[
+                flow.progressItem,
+                index < currentStep ? flow.progressDone : '',
+                index === currentStep ? flow.progressCurrent : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-current={index === currentStep ? 'step' : undefined}
+            >
+              <span className={flow.progressDot} aria-hidden="true">
+                {index < currentStep ? '✓' : index + 1}
+              </span>
+              <span className={flow.progressText}>{item.label}</span>
+            </li>
+          ))}
+        </ol>
+      </nav>
+
       {restored ? (
         <div className={flow.notice} style={{ marginBottom: 'var(--space-5)' }}>
           <span className={flow.noticeIcon} aria-hidden="true">
@@ -90,7 +134,10 @@ export default function NewSplitPage() {
       {step === 'upload' ? (
         <>
           <div className={flow.head}>
-            <h1 className="t-title">New receipt</h1>
+            <div>
+              <h1 className="t-title">New receipt</h1>
+              <p className="t-meta">Start with a photo, upload, or enter the total yourself.</p>
+            </div>
           </div>
           <UploadStep
             onExtracted={(r, w) => {
@@ -99,7 +146,7 @@ export default function NewSplitPage() {
               setStep('review')
             }}
             onManual={() => {
-              setReceipt(EMPTY)
+              setReceipt(MANUAL_START)
               setWarnings([])
               setStep('review')
             }}
@@ -121,7 +168,9 @@ export default function NewSplitPage() {
         <AssignStep
           receipt={receipt}
           people={people}
-          available={sw.signedIn ? [sw.me, ...sw.friends].filter(Boolean) as typeof sw.friends : undefined}
+          available={
+            sw.signedIn ? ([sw.me, ...sw.friends].filter(Boolean) as typeof sw.friends) : undefined
+          }
           assignments={assignments}
           onPeople={setPeople}
           onAssignments={setAssignments}

@@ -29,9 +29,16 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   { variant = 'primary', full, loading, disabledReason, disabled, children, ...rest },
   ref,
 ) {
-  const isDisabled = Boolean(disabled ?? loading)
+  // `loading` must not set `disabled`: a disabled button leaves the tab order,
+  // so focus is dropped to <body> the moment a user presses it, and
+  // aria-busy is attached to something nobody can reach. aria-disabled plus
+  // swallowing the click keeps it focusable and announced.
+  const isDisabled = Boolean(disabled)
+  const isBusy = Boolean(loading)
   const reasonId =
-    isDisabled && disabledReason ? `btn-reason-${(idCounter = (idCounter + 1) % 1e6)}` : undefined
+    (isDisabled || isBusy) && disabledReason
+      ? `btn-reason-${(idCounter = (idCounter + 1) % 1e6)}`
+      : undefined
 
   const classes = [styles.base, styles[variant], full ? styles.full : '', loading ? styles.loading : '']
     .filter(Boolean)
@@ -44,8 +51,10 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
         ref={ref}
         className={classes}
         disabled={isDisabled}
-        aria-busy={loading || undefined}
+        aria-disabled={isBusy || undefined}
+        aria-busy={isBusy || undefined}
         aria-describedby={reasonId}
+        onClick={isBusy ? (e) => e.preventDefault() : rest.onClick}
       >
         <span className={styles.label}>{children}</span>
         {loading ? <span className={styles.spinner} aria-hidden="true" /> : null}

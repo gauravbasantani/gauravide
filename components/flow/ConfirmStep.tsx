@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { colourOf } from './AvatarToggle'
 import { formatMoney } from '@/lib/money'
-import { computeSplit, settleRounding, type Item } from '@/lib/split'
+import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import type { Person } from '@/lib/draft'
 import type { SwGroup, SwPerson } from '@/lib/useSplitwise'
@@ -75,10 +75,15 @@ export function ConfirmStep({
       feeCents: receipt.feeCents,
       totalCents: total,
     })
-    // Any rounding drift lands on the payer (FR-18).
+    // Judge reconciliation BEFORE settling. settleRounding forces the sum to
+    // match, so testing it afterwards always passes and proves nothing — the
+    // green "matches receipt" badge would be unconditional.
+    const drift = Math.abs(total - r.computedTotal)
+    const reconciles = drift <= maxRoundingDrift(people.length) && r.unassignedItemIds.length === 0
+
+    // Only genuine rounding is settled onto the payer (FR-18).
     const settled = payer ? settleRounding(r.shares, total, payer) : r.shares
-    const sum = Object.values(settled).reduce((a, b) => a + b, 0)
-    return { shares: settled, reconciles: sum === total && r.unassignedItemIds.length === 0 }
+    return { shares: settled, reconciles }
   }, [receipt, people, assignments, total, payer])
 
   const summaryText = useMemo(() => {
@@ -145,7 +150,25 @@ export function ConfirmStep({
   return (
     <>
       <div className={flow.head}>
-        <h1 className="t-title">Ready</h1>
+        <div>
+          <h1 className="t-title">Ready</h1>
+          <p className="t-meta">Step 4 · One last look before anything is sent.</p>
+        </div>
+        <p className="t-caption">You can still go back and change it.</p>
+      </div>
+
+      <div className={flow.helper}>
+        <span className={flow.helperIcon} aria-hidden="true">
+          →
+        </span>
+        <div className={flow.helperContent}>
+          <strong>Your split is ready to share</strong>
+          <span>
+            Choose who paid, check the per-person totals, then add it to Splitwise or copy the
+            summary for another app. Nothing is submitted from this screen until you tap the action
+            below.
+          </span>
+        </div>
       </div>
 
       {!signedIn ? (
@@ -178,7 +201,9 @@ export function ConfirmStep({
             {formatMoney(total, receipt.currency)}
           </span>
           <span className={[styles.check, reconciles ? '' : styles.fail].join(' ')}>
-            {reconciles ? '✓ matches receipt' : '✕ the numbers don’t add up yet'}
+            {reconciles
+              ? '✓ matches receipt'
+              : '✕ the items don’t add up to the total — go back and check'}
           </span>
         </div>
 

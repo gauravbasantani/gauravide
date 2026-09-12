@@ -18,12 +18,23 @@ const QA: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
+    q: 'Why does Splitwise show broad account permissions when I connect?',
+    a: (
+      <p>
+        Splitwise uses one account-level OAuth approval for third-party apps rather than separate
+        permission switches. Gauravide uses that connection to read your profile, friends, and
+        groups, then create the expense you explicitly submit. It has no feature or API route for
+        changing your settings or inviting people.
+      </p>
+    ),
+  },
+  {
     q: 'Is my receipt stored? Who can see it?',
     a: (
       <p>
         The photo is stripped of location data in your browser, then sent to Google Gemini to read
-        the items. That is the only place receipt contents leave this app. Nobody else can see
-        your receipts or your splits.
+        the items. That is the only place receipt contents leave this app. Nobody else can see your
+        receipts or your splits.
       </p>
     ),
   },
@@ -32,9 +43,9 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         Most receipts print a code beside each line marking its tax rate. Gauravide reads those and
-        charges tax to whoever took the taxed items. If you bought only tax-exempt groceries you
-        pay none of the 8% charged on someone else&rsquo;s household goods. If the receipt has no
-        codes, tax is split in proportion to each person&rsquo;s items, and the app says so.
+        charges tax to whoever took the taxed items. If you bought only tax-exempt groceries you pay
+        none of the 8% charged on someone else&rsquo;s household goods. If the receipt has no codes,
+        tax is split in proportion to each person&rsquo;s items, and the app says so.
       </p>
     ),
   },
@@ -42,9 +53,9 @@ const QA: { q: string; a: React.ReactNode }[] = [
     q: 'Can I split with someone who isn’t on Splitwise?',
     a: (
       <p>
-        You can add them by name and the maths will be right, but the expense can only be pushed
-        to Splitwise if everyone in it has a Splitwise account. For anyone else, copy the summary
-        at the end of the flow.
+        You can add them by name and the maths will be right, but the expense can only be pushed to
+        Splitwise if everyone in it has a Splitwise account. For anyone else, copy the summary at
+        the end of the flow.
       </p>
     ),
   },
@@ -53,8 +64,8 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         <strong>No</strong>, and not because we haven&rsquo;t got to it. Neither company offers a
-        public API for your own order history — the developer APIs they publish are for
-        marketplace sellers and affiliates. Photographing the receipt is the honest route.
+        public API for your own order history — the developer APIs they publish are for marketplace
+        sellers and affiliates. Photographing the receipt is the honest route.
       </p>
     ),
   },
@@ -62,10 +73,10 @@ const QA: { q: string; a: React.ReactNode }[] = [
     q: 'What if the scan reads a price wrong?',
     a: (
       <p>
-        Fix it — every line is editable, and lines the scan was unsure about are highlighted so
-        your eye goes straight to them. If the items don&rsquo;t add up to the printed total, the
-        app says so and points at the gap. It will never quietly adjust a price to make the
-        numbers balance.
+        Fix it — every line is editable, and lines the scan was unsure about are highlighted so your
+        eye goes straight to them. If the items don&rsquo;t add up to the printed total, the app
+        says so and points at the gap. It will never quietly adjust a price to make the numbers
+        balance.
       </p>
     ),
   },
@@ -73,9 +84,9 @@ const QA: { q: string; a: React.ReactNode }[] = [
     q: 'Do the splits always add up?',
     a: (
       <p>
-        Yes, exactly. All money is handled in whole cents, and shares are distributed so they sum
-        to the total to the penny — any leftover cent goes to whoever paid. The app refuses to
-        submit an expense that doesn&rsquo;t reconcile.
+        Yes, exactly. All money is handled in whole cents, and shares are distributed so they sum to
+        the total to the penny — any leftover cent goes to whoever paid. The app refuses to submit
+        an expense that doesn&rsquo;t reconcile.
       </p>
     ),
   },
@@ -83,8 +94,8 @@ const QA: { q: string; a: React.ReactNode }[] = [
     q: 'Is it free? Will it stay free?',
     a: (
       <p>
-        Free, and it has to stay that way: Splitwise&rsquo;s API terms forbid using it in
-        connection with any fee-based service. So there will never be a subscription or ads.
+        Free, and it has to stay that way: Splitwise&rsquo;s API terms forbid using it in connection
+        with any fee-based service. So there will never be a subscription or ads.
       </p>
     ),
   },

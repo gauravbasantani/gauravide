@@ -19,13 +19,12 @@ type Props = {
 const LOW_CONFIDENCE = 0.7
 
 export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Props) {
-  const itemSum = useMemo(
-    () => receipt.items.reduce((a, i) => a + i.cents, 0),
-    [receipt.items],
-  )
+  const itemSum = useMemo(() => receipt.items.reduce((a, i) => a + i.cents, 0), [receipt.items])
 
   const subtotal = receipt.subtotalCents ?? itemSum
-  const total = receipt.totalCents ?? subtotal + receipt.taxCents + receipt.tipCents + receipt.feeCents
+  const total =
+    receipt.totalCents ?? subtotal + receipt.taxCents + receipt.tipCents + receipt.feeCents
+  const namedItems = receipt.items.filter((item) => item.name.trim()).length
 
   function patchItem(index: number, patch: Partial<ExtractedReceipt['items'][number]>) {
     const items = receipt.items.map((item, i) => (i === index ? { ...item, ...patch } : item))
@@ -47,7 +46,24 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
             {receipt.date ? ` · ${receipt.date}` : ''}
           </p>
         </div>
-        <p className="t-caption">Tap anything to fix it.</p>
+        <p className="t-caption">Step 2 · Takes about 10 seconds</p>
+      </div>
+
+      <div className={flow.helper}>
+        <span className={flow.helperIcon} aria-hidden="true">
+          ✓
+        </span>
+        <div className={flow.helperContent}>
+          <strong>
+            {namedItems > 0
+              ? `${namedItems} item${namedItems === 1 ? '' : 's'} found`
+              : 'Add the items you want to split'}
+          </strong>
+          <span>
+            Tap a name or amount to edit it. Check highlighted lines especially carefully, then
+            continue when the total looks right.
+          </span>
+        </div>
       </div>
 
       {warnings.length > 0 ? (
@@ -86,7 +102,10 @@ export function ReviewStep({ receipt, warnings, onChange, onBack, onNext }: Prop
           {receipt.items.map((item, i) => {
             const low = (item.confidence ?? 1) < LOW_CONFIDENCE
             return (
-              <li key={i} className={[styles.item, low ? styles.low : ''].filter(Boolean).join(' ')}>
+              <li
+                key={i}
+                className={[styles.item, low ? styles.low : ''].filter(Boolean).join(' ')}
+              >
                 <input
                   className={styles.name}
                   defaultValue={item.name}

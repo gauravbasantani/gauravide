@@ -20,6 +20,29 @@
   line-height: 1;
 }
 
+.description {
+  max-width: 30rem;
+  margin: calc(-1 * var(--space-2)) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-meta);
+}
+
+.tips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.tips span {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+}
+
 .actions {
   display: grid;
   gap: var(--space-3);
@@ -51,6 +74,54 @@
   justify-items: center;
   text-align: center;
   padding: var(--space-6);
+}
+
+.selected {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+  text-align: center;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.fileDetails {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 28rem;
+  overflow-wrap: anywhere;
+}
+
+.fileDetails strong {
+  font-size: var(--text-section);
+}
+
+.selectedActions {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 20rem;
+}
+
+.filePreview {
+  display: grid;
+  place-items: center;
+  width: 9rem;
+  height: 11rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.fileIcon {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--primary-subtle);
+  color: var(--primary);
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .thumbWrap {

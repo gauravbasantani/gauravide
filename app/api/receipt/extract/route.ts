@@ -24,12 +24,15 @@ const SIGNATURES: { mime: string; test: (b: Uint8Array) => boolean }[] = [
   },
   {
     mime: 'image/webp',
-    test: (b) =>
-      b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42,
+    test: (b) => b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42,
   },
   {
     mime: 'image/heic',
     test: (b) => b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70,
+  },
+  {
+    mime: 'application/pdf',
+    test: (b) => b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46,
   },
 ]
 
@@ -83,7 +86,8 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: 'unsupported',
-        message: "That doesn't look like a photo. Use a JPG, PNG or HEIC.",
+        message:
+          "That doesn't look like a receipt image or PDF. Use a JPG, PNG, WEBP, HEIC or PDF.",
       },
       { status: 415 },
     )

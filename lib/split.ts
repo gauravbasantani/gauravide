@@ -73,6 +73,24 @@ export function computeSplit(input: SplitInput): SplitResult {
   const shares = empty(people)
   const unassignedItemIds: string[] = []
 
+  // 0. "Split the total" — a bar tab, a card slip, a receipt whose items
+  //    could not be read (GAP-1). With no lines to assign, the total splits
+  //    evenly across everyone. Leaving the shares at zero here would let
+  //    settleRounding load the entire bill onto one person.
+  if (items.length === 0 && totalCents !== 0 && people.length > 0) {
+    const parts = allocate(totalCents, people.map(() => 1))
+    addInto(shares, people, parts)
+    addInto(itemSubtotals, people, parts)
+    return {
+      shares,
+      itemSubtotals,
+      taxMethod: 'proportional',
+      unassignedItemIds: [],
+      reconciles: sum(people.map((p) => shares[p] ?? 0)) === totalCents,
+      computedTotal: sum(people.map((p) => shares[p] ?? 0)),
+    }
+  }
+
   // 1. Each line splits evenly among whoever is on it.
   //    A line split into N units is N separate items upstream (FR-12a), so
   //    there is nothing special to do here.
@@ -146,8 +164,23 @@ export function computeSplit(input: SplitInput): SplitResult {
 }
 
 /**
+ * The largest gap that can legitimately come from rounding: at most one cent
+ * per person per allocation pass (items, tax, tip/fees).
+ */
+export function maxRoundingDrift(peopleCount: number): Cents {
+  return Math.max(1, peopleCount * 3)
+}
+
+/**
  * Force the shares to sum to the total by giving any leftover cents to the
  * payer (FR-18). Rounding across several allocations can leave a cent or two.
+ *
+ * CALLER BEWARE: this makes the sum equal the total BY CONSTRUCTION. Checking
+ * `sum === total` afterwards is therefore always true and proves nothing — an
+ * audit found exactly that dead guard in the submit route, which meant a
+ * receipt whose items did not match its printed total had the whole
+ * difference charged silently to the payer under a green "matches receipt"
+ * badge. Check `reconciles` and the drift BEFORE calling this.
  */
 export function settleRounding(
   shares: Record<PersonId, Cents>,

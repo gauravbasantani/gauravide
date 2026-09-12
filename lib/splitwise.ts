@@ -7,8 +7,10 @@
  * Requires an active Splitwise Pro subscription on the DEVELOPER's account to
  * register the app at all (requirements.md §4).
  */
-const AUTHORIZE_URL = 'https://secure.splitwise.com/oauth/authorize'
-const TOKEN_URL = 'https://secure.splitwise.com/oauth/token'
+// Splitwise keeps its OAuth 2.0 endpoints on www.splitwise.com. The REST API
+// remains on secure.splitwise.com below. Using secure for OAuth returns a 404.
+const AUTHORIZE_URL = 'https://www.splitwise.com/oauth/authorize'
+const TOKEN_URL = 'https://www.splitwise.com/oauth/token'
 const API = 'https://secure.splitwise.com/api/v3.0'
 
 export type SplitwiseUser = {
@@ -170,8 +172,29 @@ export async function createExpense(
  * a trailing slash or the wrong scheme fails with an opaque error.
  */
 export function callbackUrl(requestUrl: string): string {
-  const base = process.env.APP_URL ?? new URL(requestUrl).origin
-  return `${base.replace(/\/$/, '')}/api/auth/callback`
+  return `${appBaseUrl(requestUrl)}/api/auth/callback`
+}
+
+/**
+ * APP_URL is the registered public URL in production. In local development,
+ * however, the app may be running on a test port (for example 3210), so use
+ * the actual request origin instead of redirecting OAuth back to stale :3000.
+ */
+export function appBaseUrl(requestUrl: string): string {
+  const request = new URL(requestUrl)
+  const configured = process.env.APP_URL?.trim()
+  if (!configured) return request.origin
+
+  let app: URL
+  try {
+    app = new URL(configured)
+  } catch {
+    return request.origin
+  }
+
+  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1'])
+  if (localHosts.has(app.hostname) && localHosts.has(request.hostname)) return request.origin
+  return app.origin
 }
 
 export const displayName = (u: SplitwiseUser): string =>

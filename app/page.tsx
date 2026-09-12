@@ -43,9 +43,15 @@ const STEPS = [
   { n: '04', title: 'Done', body: 'One tap sends it to Splitwise, split exactly.' },
 ]
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ auth_error?: string | string[] }>
+}) {
   const session = await getSession()
   const signedIn = Boolean(session.accessToken)
+  const authError = (await searchParams)?.auth_error
+  const authErrorCode = Array.isArray(authError) ? authError[0] : authError
 
   return (
     <div className="shell">
@@ -62,8 +68,8 @@ export default async function Home() {
         </h1>
 
         <p className={styles.tagline}>
-          Snap a photo, tap who shared what, and the itemised expense lands in Splitwise — with
-          tax split by who actually bought what.
+          Snap a photo, tap who shared what, and the itemised expense lands in Splitwise — with tax
+          split by who actually bought what.
         </p>
 
         <div className={styles.actions}>
@@ -77,9 +83,34 @@ export default async function Home() {
           ) : null}
         </div>
 
-        {signedIn ? (
-          <p className={styles.signed}>✓ Signed in — expenses push in one tap.</p>
+        {!signedIn && splitwiseConfigured() ? (
+          <p className={styles.permissionNote}>
+            Splitwise may show a broad account-access notice because its API does not offer
+            permission-by-permission scopes. Gauravide uses the connection only to load your
+            Splitwise people and create the expense you choose to submit — never to change settings
+            or invite people.
+          </p>
         ) : null}
+
+        {authErrorCode ? (
+          <div className={styles.authNotice} role="alert">
+            <strong>Splitwise couldn’t connect.</strong>
+            <span>
+              {authErrorCode === 'not_configured'
+                ? 'Sign-in is not configured on this deployment yet.'
+                : authErrorCode === 'declined'
+                  ? 'No changes were made. You can try again whenever you’re ready.'
+                  : 'The connection expired or was declined. Your receipt work is still safe on this device.'}
+            </span>
+            {splitwiseConfigured() ? (
+              <a href="/api/auth/login?next=/new" className={styles.authRetry}>
+                Try Splitwise again
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        {signedIn ? <p className={styles.signed}>✓ Signed in — expenses push in one tap.</p> : null}
 
         <p className={styles.meta}>
           <span className={styles.metaItem}>Free, always</span>
@@ -159,9 +190,7 @@ export default async function Home() {
           <h2 id="steps-title" className={styles.sectionTitle}>
             Four taps, start to finish
           </h2>
-          <p className={styles.sectionBody}>
-            No menus, no settings, no dashboard to learn.
-          </p>
+          <p className={styles.sectionBody}>No menus, no settings, no dashboard to learn.</p>
         </div>
         <div className={styles.steps}>
           {STEPS.map((s) => (

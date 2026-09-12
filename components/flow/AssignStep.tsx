@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Sheet } from '@/components/ui/Sheet'
@@ -37,6 +37,15 @@ export function AssignStep({
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [newName, setNewName] = useState('')
+  const addPersonTrigger = useRef<HTMLButtonElement>(null)
+
+  function closeAddPerson() {
+    setAdding(false)
+    // The sheet owns focus while it is open. Wait until it is removed before
+    // returning focus so keyboard and mobile users always have a clear place
+    // to continue from.
+    window.requestAnimationFrame(() => addPersonTrigger.current?.focus())
+  }
 
   const total =
     receipt.totalCents ??
@@ -102,7 +111,7 @@ export function AssignStep({
     }
     onAssignments(updated)
     setNewName('')
-    setAdding(false)
+    closeAddPerson()
   }
 
   const methodLabel =
@@ -115,8 +124,24 @@ export function AssignStep({
   return (
     <>
       <div className={flow.head}>
-        <h1 className="t-title">Who shares what?</h1>
-        <p className="t-caption">Tap a face to add or remove them.</p>
+        <div>
+          <h1 className="t-title">Who shares what?</h1>
+          <p className="t-meta">Step 3 · Assign each item to one or more people.</p>
+        </div>
+        <p className="t-caption">Totals update as you tap.</p>
+      </div>
+
+      <div className={flow.helper}>
+        <span className={flow.helperIcon} aria-hidden="true">
+          2×
+        </span>
+        <div className={flow.helperContent}>
+          <strong>Sharing an item means splitting its cost</strong>
+          <span>
+            Add everyone first, then tap a person’s face on any item they shared. Discounts and tax
+            follow the people assigned to the receipt lines.
+          </span>
+        </div>
       </div>
 
       <div className={flow.card}>
@@ -141,7 +166,12 @@ export function AssignStep({
               />
             </span>
           ))}
-          <button type="button" className={styles.addPerson} onClick={() => setAdding(true)}>
+          <button
+            ref={addPersonTrigger}
+            type="button"
+            className={styles.addPerson}
+            onClick={() => setAdding(true)}
+          >
             + Add person
           </button>
         </div>
@@ -243,10 +273,10 @@ export function AssignStep({
             ? 'Pick a Splitwise friend, or type a name for someone not on Splitwise.'
             : 'Sign in with Splitwise to pick real friends.'
         }
-        onClose={() => setAdding(false)}
+        onClose={closeAddPerson}
         actions={
           <>
-            <Button variant="secondary" onClick={() => setAdding(false)}>
+            <Button variant="secondary" onClick={closeAddPerson}>
               Cancel
             </Button>
             <Button onClick={() => addPerson()} disabled={!newName.trim()}>

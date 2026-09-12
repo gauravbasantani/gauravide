@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { authorizeUrl, callbackUrl, splitwiseConfigured } from '@/lib/splitwise'
+import { appBaseUrl, authorizeUrl, callbackUrl, splitwiseConfigured } from '@/lib/splitwise'
 
 export const runtime = 'nodejs'
 
 export async function GET(req: Request) {
   if (!splitwiseConfigured()) {
-    return NextResponse.json(
-      { error: 'not_configured', message: 'Splitwise sign-in is not set up yet.' },
-      { status: 503 },
-    )
+    return NextResponse.redirect(`${appBaseUrl(req.url)}/?auth_error=not_configured`, {
+      status: 303,
+    })
   }
 
   // Random state, stored in a short-lived cookie and verified on the way back.
@@ -27,6 +26,7 @@ export async function GET(req: Request) {
   // Where to land after sign-in. Same-origin paths only — never a
   // user-supplied absolute URL, which would be an open redirect (SEC-5).
   const next = new URL(req.url).searchParams.get('next') ?? '/'
+  jar.delete('gv_oauth_next')
   if (next.startsWith('/') && !next.startsWith('//')) {
     jar.set('gv_oauth_next', next, {
       httpOnly: true,

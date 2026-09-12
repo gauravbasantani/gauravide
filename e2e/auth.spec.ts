@@ -11,7 +11,7 @@ test.describe('Splitwise sign-in', () => {
     expect(res.status(), 'should redirect, not 404').toBe(307)
 
     const location = res.headers()['location'] ?? ''
-    expect(location).toContain('https://secure.splitwise.com/oauth/authorize')
+    expect(location).toContain('https://www.splitwise.com/oauth/authorize')
 
     const url = new URL(location)
     expect(url.searchParams.get('response_type')).toBe('code')
@@ -27,7 +27,7 @@ test.describe('Splitwise sign-in', () => {
     const swResponse = await page.request.get(location, { maxRedirects: 0 })
     // 200 = approval page, 302 = redirect to their login. Both are healthy.
     // 404 would mean our client_id or URL is wrong.
-    expect([200, 302], `Splitwise returned ${swResponse.status()}`).toContain(swResponse.status())
+    expect([200, 302, 303], `Splitwise returned ${swResponse.status()}`).toContain(swResponse.status())
   })
 
   test('state is stored in an HttpOnly cookie', async ({ page, context }) => {

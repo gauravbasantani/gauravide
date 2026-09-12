@@ -70,13 +70,16 @@
   width: 100%;
 }
 
-/* Width is locked while loading so the layout never jumps. */
+/* Width is locked while loading so the layout never jumps.
+   The label is hidden with opacity, NOT visibility or display: those remove
+   it from the accessibility tree, leaving the button with no name at all
+   while it is busy. */
 .loading {
   position: relative;
   color: transparent;
 }
 .loading > .label {
-  visibility: hidden;
+  opacity: 0;
 }
 
 .spinner {

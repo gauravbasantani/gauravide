@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { callbackUrl, exchangeCode, getCurrentUser } from '@/lib/splitwise'
+import { appBaseUrl, callbackUrl, exchangeCode, getCurrentUser } from '@/lib/splitwise'
 import { getSession, writeSession } from '@/lib/session'
 
 export const runtime = 'nodejs'
@@ -8,7 +8,7 @@ export const runtime = 'nodejs'
 export async function GET(req: Request) {
   const url = new URL(req.url)
   const jar = await cookies()
-  const base = process.env.APP_URL ?? url.origin
+  const base = appBaseUrl(req.url)
 
   const fail = (reason: string) =>
     NextResponse.redirect(`${base}/?auth_error=${encodeURIComponent(reason)}`)

@@ -31,6 +31,15 @@ export function Sheet({
   const returnFocusTo = useRef<HTMLElement | null>(null)
   const id = useId()
 
+  // Callers pass inline arrows for onClose, so its identity changes on every
+  // parent render. Holding it in a ref keeps it out of the effect's
+  // dependencies — otherwise the effect tore down and re-ran on each render,
+  // yanking focus out of the dialog on every keystroke.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     if (!open) return
 
@@ -41,7 +50,7 @@ export function Sheet({
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && dismissible) {
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !panel) return
@@ -71,7 +80,8 @@ export function Sheet({
       document.body.style.overflow = prevOverflow
       returnFocusTo.current?.focus()
     }
-  }, [open, dismissible, onClose])
+    // Deliberately NOT depending on onClose — see onCloseRef above.
+  }, [open, dismissible])
 
   if (!open) return null
 

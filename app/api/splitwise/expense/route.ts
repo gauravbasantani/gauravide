@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession, ownerId } from '@/lib/session'
 import { createExpense, SplitwiseError } from '@/lib/splitwise'
-import { computeSplit, settleRounding, type Item } from '@/lib/split'
+import { computeSplit, maxRoundingDrift, settleRounding, type Item } from '@/lib/split'
 import { rateLimit } from '@/lib/ratelimit'
 
 export const runtime = 'nodejs'
@@ -100,20 +100,27 @@ export async function POST(req: Request) {
     )
   }
 
-  const shares = settleRounding(result.shares, input.totalCents, String(input.payerId))
-  const sum = Object.values(shares).reduce((a, b) => a + b, 0)
-
-  // Hard block. If this fails it is our bug, not the user's (ACC-3 check 3).
-  if (sum !== input.totalCents) {
-    console.error(`[expense] reconciliation failed: ${sum} !== ${input.totalCents}`)
+  // Hard block — and it MUST come before settleRounding (ACC-3 check 3).
+  //
+  // settleRounding makes the shares sum to the total by construction, so any
+  // check after it is dead code. Checking afterwards is what let a receipt
+  // whose items did not match its printed total push the entire difference
+  // onto the payer, while the UI said "matches receipt".
+  const drift = Math.abs(input.totalCents - result.computedTotal)
+  if (drift > maxRoundingDrift(people.length)) {
+    console.error(`[expense] reconciliation failed: drift ${drift} cents`)
     return NextResponse.json(
       {
         error: 'reconciliation_failed',
-        message: 'The numbers don’t add up. We won’t submit something wrong.',
+        message:
+          'The items don’t add up to the total on the receipt. We won’t submit something wrong — go back and check the amounts.',
       },
       { status: 422 },
     )
   }
+
+  // Only genuine rounding remains; give the odd cent to the payer (FR-18).
+  const shares = settleRounding(result.shares, input.totalCents, String(input.payerId))
 
   const description = [input.merchant?.trim() || 'Receipt'].join('')
 

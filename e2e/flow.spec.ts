@@ -32,6 +32,9 @@ test.describe('the whole split, end to end', () => {
 
     // 1. Upload — set the file on the real input behind the label.
     await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await expect(page.getByText(/receipt ready/i)).toBeVisible()
+    await expect(page.getByAltText(/preview of the receipt/i)).toBeVisible()
+    await page.getByRole('button', { name: /read this receipt/i }).click()
     await expect(page.getByText(/reading your receipt/i)).toBeVisible()
 
     // 2. Review — wait for extraction to land, THEN judge what it returned.
