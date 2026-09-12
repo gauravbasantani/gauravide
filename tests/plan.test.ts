@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { netBalances, planSplit, suggestTransfers, type Item } from '@/lib/split'
 import { sum } from '@/lib/money'
 import { draftFromSplit, type StoredSplit } from '@/lib/history'
-import { buildPlan, payersFor } from '@/components/flow/plan'
+import { buildPlan, effectiveAssignments, payersFor } from '@/components/flow/plan'
 import {
   cleanItemName,
+  discountParents,
   splitQuantityIntoItems,
   tidyReceipt,
   unitCount,
@@ -392,5 +393,130 @@ describe('reopening a saved split to edit it (FR-39)', () => {
     const draft = draftFromSplit(legacy, () => crypto.randomUUID())
     expect(draft.settings.mode).toBe('exact')
     expect(draft.settings.exact).toEqual(legacy.data.owed)
+  })
+})
+
+describe('a discount follows the item it discounts (FR-42)', () => {
+  const receipt = {
+    merchant: 'Costco',
+    date: null,
+    currency: 'USD',
+    items: [
+      { id: 'towel', name: 'KS TOWEL', qty: 1, cents: 2079 },
+      { id: 'snaps', name: 'HVST SNAPS', qty: 1, cents: 859 },
+      { id: 'disc', name: 'Discount · SNAPS', qty: 1, cents: -300 },
+    ],
+    taxLines: [],
+    subtotalCents: null,
+    taxCents: 0,
+    tipCents: 0,
+    feeCents: 0,
+    totalCents: 2638,
+  }
+  const people = [
+    { id: 'g', name: 'Gaurav' },
+    { id: 'm', name: 'Mayur' },
+  ]
+  const settings = {
+    mode: 'items' as const,
+    included: null,
+    weights: {},
+    exact: {},
+    payers: null,
+    itemSplits: {},
+  }
+
+  it('matches by name, else the line directly above', () => {
+    expect(
+      discountParents([
+        { key: 'a', name: 'HVST SNAPS', cents: 859 },
+        { key: 'b', name: 'WATER', cents: 399 },
+        { key: 'c', name: 'Discount · SNAPS', cents: -300 },
+        // Directly under another discount, with no item to name: not guessed.
+        { key: 'd', name: 'INSTANT SAVINGS', cents: -100 },
+        { key: 'e', name: 'MILK', cents: 499 },
+        // Generic coupon directly under an item: that item.
+        { key: 'f', name: 'COUPON', cents: -50 },
+      ]),
+    ).toEqual({ c: 'a', f: 'e' })
+  })
+
+  it('Mayur had the snaps, so Mayur gets the snaps discount', () => {
+    const plan = ok(
+      buildPlan(receipt, people, { towel: ['g'], snaps: ['m'] }, settings, [
+        { personId: 'g', cents: 2638 },
+      ]),
+    )
+    expect(plan.owed).toEqual({ g: 2079, m: 559 })
+  })
+
+  it('an explicit assignment on the discount wins', () => {
+    const plan = ok(
+      buildPlan(receipt, people, { towel: ['g'], snaps: ['m'], disc: ['g'] }, settings, [
+        { personId: 'g', cents: 2638 },
+      ]),
+    )
+    expect(plan.owed).toEqual({ g: 1779, m: 859 })
+  })
+
+  it('follows an uneven split in the same proportions', () => {
+    const effective = effectiveAssignments(receipt, { snaps: ['g', 'm'] }, {
+      snaps: { kind: 'exact', values: { g: 659, m: 200 } },
+    })
+    expect(effective.follows).toEqual({ disc: 'snaps' })
+    expect(effective.itemSplits.disc).toEqual({ kind: 'shares', values: { g: 659, m: 200 } })
+  })
+})
+
+describe('editing keeps a discount following its item (FR-42 + FR-39)', () => {
+  it('reopens a saved discount as following, and moving the item moves the discount', () => {
+    const saved = {
+      id: '0b7f9a52-3c1d-4e8f-9a6b-2c3d4e5f6a7c',
+      owner_id: '101',
+      expense_ids: ['556'],
+      image_path: null,
+      archived_at: null,
+      created_at: '2026-09-12T00:00:00Z',
+      data: {
+        merchant: 'Costco',
+        date: null,
+        currency: 'USD',
+        totalCents: 2638,
+        taxCents: 0,
+        tipCents: 0,
+        feeCents: 0,
+        items: [
+          { name: 'KS TOWEL', cents: 2079, people: [101] },
+          { name: 'HVST SNAPS', cents: 859, people: [202] },
+          { name: 'Discount · SNAPS', cents: -300, people: [202] },
+        ],
+        people: [
+          { id: 101, name: 'Gaurav' },
+          { id: 202, name: 'Mayur' },
+        ],
+        payerId: 101,
+        groupId: 0,
+        groupName: 'No group',
+        status: 'in_splitwise' as const,
+        mode: 'items' as const,
+        owed: { '101': 2079, '202': 559 },
+        paid: { '101': 2638 },
+      },
+    } satisfies StoredSplit
+
+    const ids = ['towel', 'snaps', 'disc', 'key']
+    const draft = draftFromSplit(saved, () => ids.shift() ?? 'x')
+    expect(draft.assignments.disc).toEqual([])
+    const payers = payersFor(draft.settings, draft.payerId, draft.people, 2638)
+    expect(ok(buildPlan(draft.receipt, draft.people, draft.assignments, draft.settings, payers)).owed).toEqual(
+      saved.data.owed,
+    )
+
+    // Give the snaps to Gaurav instead: the discount must go with them.
+    const moved = { ...draft.assignments, snaps: ['101'] }
+    expect(ok(buildPlan(draft.receipt, draft.people, moved, draft.settings, payers)).owed).toEqual({
+      '101': 2638,
+      '202': 0,
+    })
   })
 })

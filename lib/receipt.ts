@@ -120,6 +120,41 @@ export function tidyReceipt(receipt: ExtractedReceipt): ExtractedReceipt {
   }
 }
 
+/**
+ * Which item each discount line discounts (FR-42).
+ *
+ * Costco prints "0000389361 / SNAPS  3.00-" right under "HVST SNAPS": the
+ * discount belongs to whoever had the snaps. Match by a shared word first
+ * (nearest earlier line), else the line directly above. Receipt-wide coupons
+ * with no match and no item above are left for the user to assign.
+ */
+export function discountParents(
+  lines: { key: string; name: string; cents: number }[],
+): Record<string, string> {
+  const GENERIC = /^(DISCOUNT|SAVINGS|SAVING|INSTANT|COUPON|OFF|PROMO|MEMBER|TPD)$/
+  const parents: Record<string, string> = {}
+  lines.forEach((line, i) => {
+    if (line.cents >= 0) return
+    const words = line.name
+      .replace(/^discount\s*·\s*/i, '')
+      .toUpperCase()
+      .split(/[^A-Z0-9]+/)
+      .filter((word) => word.length >= 3 && !GENERIC.test(word))
+    let parent: string | undefined
+    for (let j = i - 1; j >= 0 && words.length > 0; j--) {
+      const candidate = lines[j]
+      if (candidate && candidate.cents > 0 && words.some((w) => candidate.name.toUpperCase().includes(w))) {
+        parent = candidate.key
+        break
+      }
+    }
+    const above = lines[i - 1]
+    if (!parent && above && above.cents > 0) parent = above.key
+    if (parent) parents[line.key] = parent
+  })
+  return parents
+}
+
 /** The id assignments are keyed by. Falls back to position for legacy rows. */
 export const itemKey = (item: Pick<ExtractedItem, 'id'>, index: number): string =>
   item.id ?? String(index)

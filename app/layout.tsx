@@ -8,8 +8,7 @@ export const metadata: Metadata = {
   description: 'Split a receipt in 30 seconds — scan it, tap who shares what, done.',
   applicationName: 'Gauravide',
   icons: {
-    icon: '/icon.png',
-    apple: '/apple-icon.png',
+    icon: '/icon.svg',
   },
 }
 

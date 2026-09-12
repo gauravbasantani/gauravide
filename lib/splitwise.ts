@@ -11,7 +11,9 @@
 // remains on secure.splitwise.com below. Using secure for OAuth returns a 404.
 const AUTHORIZE_URL = 'https://www.splitwise.com/oauth/authorize'
 const TOKEN_URL = 'https://www.splitwise.com/oauth/token'
-const API = 'https://secure.splitwise.com/api/v3.0'
+// SPLITWISE_API_URL exists only so the full end-to-end suite can point the
+// server at a local stand-in. Unset in every real deployment.
+const API = process.env.SPLITWISE_API_URL?.trim() || 'https://secure.splitwise.com/api/v3.0'
 
 export type SplitwiseUser = {
   id: number

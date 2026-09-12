@@ -497,6 +497,22 @@ transaction."*
   $6.00 each", "You ×2 · Alex ×1") · Edit split / Open in Splitwise at the top · archive and
   delete below. Rows with a photo show 📷 on the dashboard.
 
+### Discounts follow their item; server/client crash (added 2026-09-12, fourth pass)
+
+*Raised by Gaurav from a live test: "snaps are assigned to Mayur and the discount is on snaps —
+will that person automatically get the discount? And after clicking Done, why this error?"*
+
+- **FR-42** **A discount follows the item it discounts.** A negative line nobody has assigned
+  takes the people (and any uneven split, as proportions) of its item: matched by a shared word
+  ("Discount · SNAPS" → "HVST SNAPS"), else the line directly above. The row shows
+  "↳ Follows HVST SNAPS". Tapping a face on the discount gives it its own assignment. The same
+  rule drives the preview, the submit payload and the saved split (`effectiveAssignments()`).
+- **GAP-28** **"Something went wrong" after Done.** The dashboard and split page (server
+  components) called `colourOf`/`initialsOf` exported from `AvatarToggle.tsx`, a `'use client'`
+  module; on the server those exports are client references and calling them throws. They now
+  live in `lib/avatar.ts`, and `tests/boundaries.test.ts` fails the build if any server file
+  calls a function exported from a `'use client'` module again.
+
 ### Gaps closed by the 2026-09-12 review
 
 - **GAP-24** Assignments were keyed by row position; removing or splitting a row after

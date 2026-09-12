@@ -331,6 +331,56 @@ test.describe('the whole split, end to end', () => {
     })
   })
 
+  test('a discount goes to whoever had the item it discounts', async ({ page }) => {
+    await page.route('**/api/receipt/extract', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          source: 'gemini',
+          warnings: [],
+          receipt: {
+            merchant: 'Costco',
+            date: '2026-09-04',
+            currency: 'USD',
+            items: [
+              { name: '512599 **KS TOWEL**', qty: 1, cents: 2079, confidence: 1 },
+              { name: '1644153 HVST SNAPS', qty: 1, cents: 859, confidence: 1 },
+              { name: '0000389361 / SNAPS', qty: 1, cents: -300, confidence: 1 },
+            ],
+            taxLines: [],
+            subtotalCents: 2638,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 2638,
+          },
+        }),
+      }),
+    )
+    await page.goto('/new')
+    await page.locator('input[type="file"]').nth(1).setInputFiles(RECEIPT)
+    await page.getByRole('button', { name: /read this receipt/i }).click()
+    await page.getByRole('button', { name: /looks right/i }).click()
+    for (const name of ['Gaurav', 'Mayur']) {
+      await page.getByRole('button', { name: /add person/i }).first().click()
+      await page.getByLabel(/^name$/i).fill(name)
+      await page.getByRole('button', { name: /add to split/i }).click()
+    }
+    await page.getByRole('button', { name: 'Gaurav, sharing KS TOWEL' }).click()
+    await page.getByRole('button', { name: 'Mayur, sharing HVST SNAPS' }).click()
+
+    await expect(page.getByText('↳ Follows HVST SNAPS')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Mayur, sharing Discount · SNAPS' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect(page.getByText('3 of 3 items assigned')).toBeVisible()
+    await page.getByRole('button', { name: /next: who paid/i }).click()
+    // Mayur: snaps 8.59 − 3.00 = 5.59
+    await expect(page.locator('[data-share]').nth(1)).toHaveText('$5.59')
+  })
+
   test('signed out, the people step leads with Splitwise sign-in', async ({ page }) => {
     await manualReceipt(page, 'Dinner', '20.00')
     const signIn = page.getByRole('link', { name: /sign in with splitwise to add friends/i })

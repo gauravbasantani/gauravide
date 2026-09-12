@@ -12,6 +12,7 @@ import { missingFrom, rankGroups, type SwGroup, type SwPerson } from '@/lib/useS
 import { GroupPicker } from './GroupPicker'
 import {
   buildPlan,
+  effectiveAssignments,
   filledWeights,
   includedIds,
   isPayerProblem,
@@ -249,6 +250,7 @@ export function ConfirmStep({
 
   async function push() {
     if (groupId === null || !plan.ok) return
+    const effective = effectiveAssignments(receipt, assignments, settings.itemSplits)
     setPushing(true)
     setPushError(null)
     setHistoryNotice(false)
@@ -276,9 +278,10 @@ export function ConfirmStep({
             name: item.name || `Item ${i + 1}`,
             cents: item.cents,
             ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
-            people: (assignments[itemKey(item, i)] ?? []).map(Number),
-            ...(settings.itemSplits[itemKey(item, i)]
-              ? { split: settings.itemSplits[itemKey(item, i)] }
+            // Discounts that follow their item are sent with its people (FR-42).
+            people: (effective.assignments[itemKey(item, i)] ?? []).map(Number),
+            ...(effective.itemSplits[itemKey(item, i)]
+              ? { split: effective.itemSplits[itemKey(item, i)] }
               : {}),
           })),
           people: people.map((p) => ({ id: Number(p.id), name: p.name })),

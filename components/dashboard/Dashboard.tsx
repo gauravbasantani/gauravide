@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { formatMoney } from '@/lib/money'
 import { paidByLabel, viewerBalance, type StoredSplit } from '@/lib/history'
-import { colourOf } from '@/components/flow/AvatarToggle'
+import { colourOf } from '@/lib/avatar'
 import styles from './Dashboard.module.css'
 
 type Props = {

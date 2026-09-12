@@ -1,3 +1,4 @@
+import { discountParents } from '@/lib/receipt'
 import type { SplitMode, TaxLine } from '@/lib/split'
 import type { Draft, ItemSplit } from '@/lib/draft'
 
@@ -113,6 +114,20 @@ export function draftFromSplit(split: StoredSplit, makeId: () => string): Omit<D
   const legacyNonItem =
     mode !== 'items' && d.included === undefined && d.weights === undefined && d.exact === undefined
 
+  // A discount that followed its item was saved with that item's people.
+  // Reopen it as following again, so changing who had the item still moves
+  // the discount with it (FR-42).
+  const parents = discountParents(
+    d.items.map((item, i) => ({ key: String(i), name: item.name, cents: item.cents })),
+  )
+  const samePeople = (a: number[] = [], b: number[] = []) =>
+    a.length > 0 && a.length === b.length && a.every((id) => b.includes(id))
+  const followed = new Set(
+    Object.entries(parents)
+      .filter(([child, parent]) => samePeople(d.items[Number(child)]?.people, d.items[Number(parent)]?.people))
+      .map(([child]) => Number(child)),
+  )
+
   return {
     step: 'review',
     receipt: {
@@ -136,7 +151,7 @@ export function draftFromSplit(split: StoredSplit, makeId: () => string): Omit<D
     },
     people: d.people.map((p) => ({ id: String(p.id), name: p.name })),
     assignments: Object.fromEntries(
-      d.items.map((item, i) => [idAt(i), (item.people ?? []).map(String)]),
+      d.items.map((item, i) => [idAt(i), followed.has(i) ? [] : (item.people ?? []).map(String)]),
     ),
     payerId: payers[0]?.[0] ?? null,
     settings: {
@@ -147,7 +162,9 @@ export function draftFromSplit(split: StoredSplit, makeId: () => string): Omit<D
       payers:
         payers.length > 1 ? payers.map(([personId, cents]) => ({ personId, cents })) : null,
       itemSplits: Object.fromEntries(
-        d.items.flatMap((item, i) => (item.split ? [[idAt(i), item.split]] : [])),
+        d.items.flatMap((item, i) =>
+          item.split && !followed.has(i) ? [[idAt(i), item.split]] : [],
+        ),
       ),
     },
     submitKey: makeId(),

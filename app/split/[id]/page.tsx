@@ -11,7 +11,7 @@ import {
   type StoredSplit,
 } from '@/lib/history'
 import { netBalances, suggestTransfers } from '@/lib/split'
-import { colourOf, initialsOf } from '@/components/flow/AvatarToggle'
+import { colourOf, initialsOf } from '@/lib/avatar'
 import { EditSplitButton } from './EditSplitButton'
 import { SplitActions } from './SplitActions'
 import styles from './split.module.css'

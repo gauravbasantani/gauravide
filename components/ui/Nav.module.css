@@ -17,26 +17,41 @@
   gap: var(--space-4);
 }
 
+/* Mark and wordmark read as one unit: the mark is a touch taller than the
+   capitals and sits close, like a single logo lockup. */
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
+  min-height: 44px;
   color: var(--text);
   text-decoration: none;
 }
 
 .mark {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
+  display: block;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
 }
 
 .wordmark {
-  font-size: 1.24rem;
+  font-size: 1.375rem;
   font-weight: 800;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.05em;
   line-height: 1;
+  /* Optical nudge: caps sit visually centred against the receipt's zigzag base. */
+  padding-bottom: 1px;
+}
+
+@media (max-width: 520px) {
+  .mark {
+    width: 30px;
+    height: 30px;
+  }
+  .wordmark {
+    font-size: 1.25rem;
+  }
 }
 
 .wordmarkAccent {

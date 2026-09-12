@@ -4,7 +4,7 @@
  * cannot drift apart.
  */
 import { formatMoney } from '@/lib/money'
-import { itemKey, type ExtractedReceipt } from '@/lib/receipt'
+import { discountParents, itemKey, type ExtractedReceipt } from '@/lib/receipt'
 import { planSplit, type Item, type Payment, type Plan, type SplitMode } from '@/lib/split'
 import type { ItemSplit, Person, SplitSettings } from '@/lib/draft'
 
@@ -18,20 +18,57 @@ export function receiptTotal(receipt: ExtractedReceipt): number {
   )
 }
 
+/**
+ * Assignments as they actually apply: a discount nobody has been assigned
+ * follows the item it discounts — same people, same uneven split (FR-42).
+ * Tapping a face on the discount makes its own assignment and ends following.
+ */
+export function effectiveAssignments(
+  receipt: ExtractedReceipt,
+  assignments: Record<string, string[]>,
+  itemSplits: Record<string, ItemSplit> = {},
+): {
+  assignments: Record<string, string[]>
+  itemSplits: Record<string, ItemSplit>
+  /** discount item id -> the item id it follows */
+  follows: Record<string, string>
+} {
+  const parents = discountParents(
+    receipt.items.map((item, i) => ({ key: itemKey(item, i), name: item.name, cents: item.cents })),
+  )
+  const nextAssignments = { ...assignments }
+  const nextSplits = { ...itemSplits }
+  const follows: Record<string, string> = {}
+  for (const [child, parent] of Object.entries(parents)) {
+    if ((assignments[child] ?? []).length > 0) continue
+    const people = assignments[parent] ?? []
+    if (people.length === 0) continue
+    nextAssignments[child] = people
+    follows[child] = parent
+    const parentSplit = itemSplits[parent]
+    // Exact cents can't transfer to a different amount; as weights they keep
+    // the same proportions, which is what "follows" means.
+    if (parentSplit) nextSplits[child] = { kind: 'shares', values: parentSplit.values }
+    else delete nextSplits[child]
+  }
+  return { assignments: nextAssignments, itemSplits: nextSplits, follows }
+}
+
 export function planItems(
   receipt: ExtractedReceipt,
   assignments: Record<string, string[]>,
   itemSplits: Record<string, ItemSplit> = {},
 ): Item[] {
+  const effective = effectiveAssignments(receipt, assignments, itemSplits)
   return receipt.items.map((item, i) => {
     const id = itemKey(item, i)
-    const split = itemSplits[id]
+    const split = effective.itemSplits[id]
     return {
       id,
       name: item.name || `Item ${i + 1}`,
       cents: item.cents,
       ...(item.taxFlag ? { taxFlag: item.taxFlag } : {}),
-      people: assignments[id] ?? [],
+      people: effective.assignments[id] ?? [],
       ...(split ? { split } : {}),
     }
   })

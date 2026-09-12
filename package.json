@@ -2,7 +2,7 @@
   "name": "gauravide",
   "version": "0.1.0",
   "private": true,
-  "description": "Split a receipt in 30 seconds \u2014 scan, assign, and push to Splitwise.",
+  "description": "Split a receipt in 30 seconds — scan, assign, and push to Splitwise.",
   "scripts": {
     "build": "next build",
     "check:contrast": "node scripts/check-contrast.mjs",
@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run lint && npm run check:contrast && npm run test",
-    "verify:all": "npm run verify && npm run build && npm run e2e"
+    "verify:all": "npm run verify && npm run build && npm run e2e:only && npm run e2e:full",
+    "e2e:full": "playwright test -c playwright.full.config.ts"
   },
   "dependencies": {
     "next": "15.1.11",

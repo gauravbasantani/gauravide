@@ -13,6 +13,7 @@ import type { Person, SplitSettings } from '@/lib/draft'
 import type { SwPerson } from '@/lib/useSplitwise'
 import {
   buildPlan,
+  effectiveAssignments,
   filledWeights,
   includedIds,
   isPayerProblem,
@@ -120,12 +121,19 @@ export function AssignStep({
   }, [plan, settings, receipt, assignments, people, total])
 
   const blocker = plan.ok || isPayerProblem(plan) ? undefined : problemText(plan, currency)
+  // What actually applies — discounts follow the item they discount (FR-42).
+  const effective = useMemo(
+    () => effectiveAssignments(receipt, assignments, settings.itemSplits),
+    [receipt, assignments, settings.itemSplits],
+  )
   const assignedCount = receipt.items.filter(
-    (item, i) => (assignments[itemKey(item, i)] ?? []).length > 0,
+    (item, i) => (effective.assignments[itemKey(item, i)] ?? []).length > 0,
   ).length
 
   function toggle(itemId: string, personId: string) {
-    const current = assignments[itemId] ?? []
+    // A discount that was following its item starts from those same people.
+    const explicit = assignments[itemId] ?? []
+    const current = explicit.length > 0 ? explicit : (effective.assignments[itemId] ?? [])
     const next = current.includes(personId)
       ? current.filter((p) => p !== personId)
       : [...current, personId]
@@ -421,10 +429,15 @@ export function AssignStep({
                 <ul className={flow.rows}>
                   {receipt.items.map((item, i) => {
                     const id = itemKey(item, i)
-                    const assigned = assignments[id] ?? []
+                    const assigned = effective.assignments[id] ?? []
+                    const followsId = effective.follows[id]
+                    const followsName = followsId
+                      ? (receipt.items.find((it, j) => itemKey(it, j) === followsId)?.name ??
+                        'the item above')
+                      : ''
                     const none = assigned.length === 0
                     const label = item.name || `Item ${i + 1}`
-                    const custom = settings.itemSplits[id]
+                    const custom = followsId ? undefined : effective.itemSplits[id]
                     const customLabel = custom
                       ? people
                           .filter((p) => (custom.values[p.id] ?? 0) !== 0)
@@ -468,6 +481,8 @@ export function AssignStep({
                           ))}
                           {none ? (
                             <span className={styles.warn}>Tap who had this</span>
+                          ) : followsId ? (
+                            <span className={styles.follows}>↳ Follows {followsName}</span>
                           ) : custom ? (
                             <span className={styles.customChip}>{customLabel}</span>
                           ) : assigned.length > 1 ? (
@@ -656,8 +671,8 @@ export function AssignStep({
         }
         people={people}
         currency={currency}
-        assigned={splitting ? (assignments[splitting] ?? []) : []}
-        split={splitting ? settings.itemSplits[splitting] : undefined}
+        assigned={splitting ? (effective.assignments[splitting] ?? []) : []}
+        split={splitting ? effective.itemSplits[splitting] : undefined}
         onSplitUnits={
           onSplitUnits && splitting
             ? () => {

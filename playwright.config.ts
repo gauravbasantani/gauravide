@@ -9,6 +9,8 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './e2e',
+  // The full suite has its own config, servers and stand-in backend.
+  testIgnore: '**/full/**',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
