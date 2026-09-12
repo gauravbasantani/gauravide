@@ -1,0 +1,120 @@
+.zone {
+  display: grid;
+  gap: var(--space-4);
+  place-items: center;
+  text-align: center;
+  padding: var(--space-10) var(--space-5);
+  border: 2px dashed var(--border-interactive);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition: border-color var(--motion-base) var(--ease-out);
+}
+
+.zone[data-dragging='true'] {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 20rem;
+}
+
+@media (min-width: 640px) {
+  .actions {
+    grid-template-columns: 1fr 1fr;
+    max-width: 26rem;
+  }
+  .primaryAction {
+    grid-column: 1 / -1;
+  }
+}
+
+.hint {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  max-width: 28rem;
+}
+
+/* Progress shows the receipt with a scanning shimmer — concrete beats a
+   spinner, and the user can see we're working on THEIR photo (UX-12). */
+.working {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.thumbWrap {
+  position: relative;
+  max-width: 14rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  max-height: 18rem;
+  object-fit: cover;
+}
+
+.shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--primary) 28%, transparent) 50%,
+    transparent 100%
+  );
+  animation: scan 1.6s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    opacity: 0.25;
+  }
+}
+
+.error {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--danger);
+  background: var(--danger-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text);
+}
+
+.errorTitle {
+  font-weight: 600;
+  color: var(--danger-text);
+}
+
+.file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

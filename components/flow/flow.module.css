@@ -1,0 +1,162 @@
+/* Shared layout for every step of the split flow. */
+
+.page {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--cta-height) + var(--space-10));
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+/* Sticky CTA: bottom third, thumb-reachable, above the safe area (UX-24).
+   scroll-padding-bottom on <html> keeps focused fields clear of it (2.4.11). */
+.cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: var(--space-3) var(--gutter);
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
+}
+
+.ctaInner {
+  max-width: var(--max-width);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (min-width: 1024px) {
+  .cta {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    border-top: none;
+    padding-inline: 0;
+    margin-top: var(--space-8);
+  }
+  .ctaInner {
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .page {
+    padding-bottom: var(--space-10);
+  }
+}
+
+/* Desktop: receipt beside the items, so the paper can be checked against the
+   numbers without scrolling. The extra width buys verification, not margins. */
+.split {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .split {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+  .aside {
+    position: sticky;
+    top: var(--space-6);
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.notice {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  border: 1px solid var(--warning-fill);
+  color: var(--text);
+  font-size: var(--text-meta);
+}
+
+.noticeIcon {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--warning-text);
+}
+
+.noticeList {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.totals {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-strong);
+}
+
+.totalLine {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.grand {
+  font-weight: 600;
+  font-size: var(--text-section);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.srHint {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}

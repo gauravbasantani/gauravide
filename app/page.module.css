@@ -29,3 +29,20 @@
   margin: var(--space-2) 0 0;
   padding-left: var(--space-5);
 }
+
+.ctaLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cta-height);
+  padding: 0 var(--space-6);
+  background: var(--primary);
+  color: var(--primary-on);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ctaLink:hover {
+  background: var(--primary-hover);
+}

@@ -13,11 +13,18 @@ export default function Home() {
         <p className={styles.privacy}>Your splits are saved to your account, private to you.</p>
       </div>
 
+      <div style={{ marginTop: 'var(--space-8)' }}>
+        <Link href="/new" className={styles.ctaLink}>
+          ⊕ Split a receipt
+        </Link>
+      </div>
+
       <div className={styles.status}>
-        <strong>Phase 1 — scaffold, design tokens and primitives.</strong>
+        <strong>In progress.</strong> Scanning, splitting and the maths all work. Pushing to
+        Splitwise needs a Splitwise Pro subscription — until then, copy the summary at the end.
         <ul className={styles.list}>
           <li>
-            <Link href="/dev/tokens">View the design system demo</Link>
+            <Link href="/dev/tokens">Design system demo</Link>
           </li>
         </ul>
       </div>

@@ -1,0 +1,113 @@
+.peopleBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.addPerson {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-3);
+  border: 2px dashed var(--border-interactive);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-meta);
+  cursor: pointer;
+}
+
+.addPerson:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.shortcuts {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.unassigned {
+  background: var(--warning-subtle);
+  border-left: 3px solid var(--warning-fill);
+}
+
+.itemName {
+  font-size: var(--text-body);
+}
+
+.itemPrice {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.itemNeg {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.avatars {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+}
+
+.warn {
+  font-size: var(--text-caption);
+  color: var(--warning-text);
+  font-weight: 500;
+}
+
+/* Running totals: always on screen, updating on every tap. There is no
+   Calculate button anywhere in this app (UX-11). */
+.running {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.runner {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-size: var(--text-meta);
+}
+
+.runnerAmount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--text-body);
+}
+
+.method {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}

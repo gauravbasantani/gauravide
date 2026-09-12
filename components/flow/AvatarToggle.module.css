@@ -1,0 +1,80 @@
+.wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.toggle {
+  /* 44px target, even though the circle renders smaller (UX-23) */
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+
+.circle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) var(--ease-out);
+}
+
+/* Unassigned: dashed outline, muted initials. */
+.off .circle {
+  background: transparent;
+  color: var(--text-muted);
+  border: 2px dashed var(--border-interactive);
+}
+
+/* Assigned: fill + solid ring + ✓ badge. Three signals, so colour never
+   carries the meaning alone (WCAG 1.4.1). */
+.on .circle {
+  color: var(--person-on);
+  border: 2px solid transparent;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px currentColor;
+}
+
+.toggle:active .circle {
+  transform: scale(0.92);
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.sm.toggle {
+  width: 36px;
+  height: 36px;
+}
+.sm .circle {
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-label);
+}
