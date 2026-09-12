@@ -111,10 +111,45 @@
   color: var(--danger-text);
 }
 
-.file {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+/* Labels styled as buttons. A <label for> opens the picker reliably in every
+   browser, and is keyboard-operable without any JavaScript. */
+.fakePrimary,
+.fakeSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.fakePrimary {
+  background: var(--primary);
+  color: var(--primary-on);
+  border: 1px solid transparent;
+}
+
+.fakePrimary:hover {
+  background: var(--primary-hover);
+}
+
+.fakeSecondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-interactive);
+}
+
+.fakeSecondary:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Focus ring on the label when its hidden input has focus, so keyboard users
+   can see where they are. */
+.fakePrimary:focus-within,
+.fakeSecondary:focus-within {
+  box-shadow: var(--focus-ring);
 }

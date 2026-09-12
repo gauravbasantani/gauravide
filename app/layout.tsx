@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next'
+import { Nav } from '@/components/ui/Nav'
+import { Footer } from '@/components/ui/Footer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -25,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a className="skip-link" href="#main">
           Skip to main content
         </a>
+        <Nav />
         <main id="main">{children}</main>
+        <Footer />
       </body>
     </html>
   )

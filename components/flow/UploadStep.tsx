@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { prepareImage, previewUrl } from '@/lib/image'
 import type { ExtractedReceipt } from '@/lib/receipt'
@@ -19,9 +19,6 @@ export function UploadStep({ onExtracted, onManual }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-
-  const cameraRef = useRef<HTMLInputElement>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   async function handle(file: File) {
     setPhase('working')
@@ -74,9 +71,18 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         <div className={styles.error} role="alert">
           <p className={styles.errorTitle}>{error}</p>
           <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-            <Button variant="secondary" onClick={() => cameraRef.current?.click()}>
+            <label className={styles.fakeSecondary}>
               Try another photo
-            </Button>
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) void handle(f)
+                }}
+              />
+            </label>
             <Button onClick={onManual}>Type it in</Button>
           </div>
         </div>
@@ -109,14 +115,31 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         <h2 className="t-section">Add your receipt</h2>
 
         <div className={styles.actions}>
-          <span className={styles.primaryAction}>
-            <Button full onClick={() => cameraRef.current?.click()}>
-              Take a photo
-            </Button>
-          </span>
-          <Button variant="secondary" full onClick={() => fileRef.current?.click()}>
+          <label className={[styles.primaryAction, styles.fakePrimary].join(' ')}>
+            Take a photo
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void handle(f)
+              }}
+            />
+          </label>
+          <label className={styles.fakeSecondary}>
             Choose a file
-          </Button>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void handle(f)
+              }}
+            />
+          </label>
           <Button variant="secondary" full onClick={onManual}>
             Type it in
           </Button>
@@ -128,31 +151,6 @@ export function UploadStep({ onExtracted, onManual }: Props) {
         </p>
       </div>
 
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className={styles.file}
-        aria-hidden="true"
-        tabIndex={-1}
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void handle(f)
-        }}
-      />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/heic"
-        className={styles.file}
-        aria-hidden="true"
-        tabIndex={-1}
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void handle(f)
-        }}
-      />
       <p className={flow.srHint} style={{ marginTop: 'var(--space-4)' }}>
         JPG, PNG, WEBP or HEIC, up to 10 MB.
       </p>
