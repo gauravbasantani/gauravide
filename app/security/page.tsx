@@ -47,7 +47,14 @@ export default function Security() {
           If you are signed in, your split and its photo are saved under your Splitwise account
           only: a <strong>private</strong> storage bucket with no public URLs, an ownership check on
           every single read and write, and row-level security in the database that denies everything
-          by default. Removing a split deletes its photo with it. Signed out, nothing is stored.
+          by default. Signed out, nothing is stored.
+        </p>
+        <p>
+          <strong>When you remove a split</strong>, the receipt is destroyed: items, merchant, date,
+          names and per-person amounts are overwritten and the photo is deleted from storage. One
+          anonymous line stays in the usage totals — amount, currency, and how many items and people
+          — which cannot rebuild the receipt and is not linked to anything you can be identified by.
+          That is the app&rsquo;s own record of work done, and it is the only thing kept.
         </p>
       </div>
 

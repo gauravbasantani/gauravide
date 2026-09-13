@@ -22,6 +22,10 @@ export type SplitRow = {
   people_count: string | null
   payer_count: string | null
   participants: unknown
+  /** Set when the owner removed their copy — the row stays, the receipt does not. */
+  removed_at?: string | null
+  /** Recorded at removal, because the photo is deleted with the copy. */
+  had_photo?: string | null
 }
 
 export type EventRow = {
@@ -85,6 +89,8 @@ export type Metrics = {
   averageReceipt: { currency: string; cents: number } | null
   /** Distinct Splitwise people in saved splits — the user and everyone they split with. */
   peopleHelped: number
+  /** Receipts whose owner later removed their copy — still counted (DB-12). */
+  removedByUsers: number
   itemsSplit: number
   timeSaved: {
     minutes: number
@@ -337,6 +343,7 @@ export function computeMetrics({
         ? { currency: primary.currency, cents: Math.round(primary.cents / primaryCount) }
         : null,
     peopleHelped: helped.size,
+    removedByUsers: rangedSplits.filter((s) => Boolean(s.removed_at)).length,
     itemsSplit,
     timeSaved: { minutes, estimatedSends, perSender: senders.size > 0 ? minutes / senders.size : null },
     frequency: {
@@ -355,7 +362,10 @@ export function computeMetrics({
       severalPayers: share('payers', 'several'),
       inGroup: share('group', 'group'),
       itemSplits: share('item_splits', 'yes'),
-      withPhoto: ratio(rangedSplits.filter((s) => s.image_path).length, rangedSplits.length),
+      withPhoto: ratio(
+        rangedSplits.filter((s) => Boolean(s.image_path) || s.had_photo === 'true').length,
+        rangedSplits.length,
+      ),
     },
     reader: {
       gemini: scans.filter((e) => e.props?.source === 'gemini').length,

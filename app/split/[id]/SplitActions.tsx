@@ -39,7 +39,7 @@ export function SplitActions({ splitId, archived, hasSplitwiseExpense }: Props) 
   async function remove(deleteFromSplitwise: boolean) {
     const warning = deleteFromSplitwise
       ? 'Delete this expense from Splitwise for everyone in the split? This can affect shared balances. You can restore it only in Splitwise.'
-      : 'Remove this saved receipt from your Gauravide dashboard? The Splitwise expense will stay unchanged.'
+      : 'Remove this saved receipt from your Gauravide dashboard? The items and photo are deleted for good, and the Splitwise expense stays unchanged.'
     if (!window.confirm(warning)) return
     setBusy(deleteFromSplitwise ? 'splitwise' : 'remove')
     setError(null)
@@ -78,7 +78,10 @@ export function SplitActions({ splitId, archived, hasSplitwiseExpense }: Props) 
         ) : null}
       </div>
       <p className={styles.actionHelp}>
-        Removing the dashboard copy never changes Splitwise. Deleting from Splitwise too is a shared action and is always confirmed first.
+        Removing the dashboard copy never changes Splitwise. It deletes the items, the photo and the
+        names for good; an anonymous line stays in usage totals (amount, how many items and people),
+        which is the only thing the app counts. Deleting from Splitwise too is a shared action and is
+        always confirmed first.
       </p>
       {error ? <p className={styles.actionError}>{error}</p> : null}
     </section>

@@ -9,6 +9,7 @@ import {
 import { computeMetrics, minutesSaved, type EventRow, type SplitRow } from '@/lib/metrics'
 import { hashToken, makeResetToken } from '@/lib/adminStore'
 import { maskEmail } from '@/lib/email'
+import { NOT_REMOVED, redactedForRemoval } from '@/lib/history'
 import { hashPassword as scriptHash } from '../scripts/admin-password.mjs'
 
 describe('admin password', () => {
@@ -207,5 +208,82 @@ describe('reset links and email addresses', () => {
   it('masks the address it emails', () => {
     expect(maskEmail('gaurav.inbox29@gmail.com')).toBe('g*************@gmail.com')
     expect(maskEmail('a@b.com')).toBe('a*@b.com')
+  })
+})
+
+describe('removing a split keeps the usage count (DB-12)', () => {
+  const now = Date.parse('2026-09-12T12:00:00Z')
+  const base: SplitRow = {
+    owner_id: '101',
+    created_at: '2026-09-12T09:00:00Z',
+    archived_at: null,
+    image_path: null,
+    currency: 'USD',
+    total: '4000',
+    mode: 'items',
+    group_id: null,
+    item_count: '6',
+    people_count: '2',
+    payer_count: '1',
+    participants: ['101', '202'],
+  }
+
+  it('counts money, people and photos after the owner removed their copy', () => {
+    const live = computeMetrics({ splits: [{ ...base, image_path: '101/a.jpg' }], events: [], range: '30d', now })
+    const removed = computeMetrics({
+      splits: [{ ...base, removed_at: '2026-09-12T11:00:00Z', had_photo: 'true' }],
+      events: [],
+      range: '30d',
+      now,
+    })
+    expect(removed.money).toEqual(live.money)
+    expect(removed.peopleHelped).toBe(live.peopleHelped)
+    expect(removed.habits.withPhoto).toBe(live.habits.withPhoto)
+    expect(removed.removedByUsers).toBe(1)
+    expect(live.removedByUsers).toBe(0)
+  })
+})
+
+describe('what a removed split leaves behind', () => {
+  const data = {
+    merchant: 'Costco Wholesale',
+    date: '2026-09-12',
+    currency: 'USD',
+    totalCents: 10850,
+    taxCents: 0,
+    tipCents: 0,
+    feeCents: 0,
+    items: [{ name: 'Harvest Snaps', cents: 859 }],
+    people: [{ id: 101, name: 'Gaurav' }],
+    payerId: 101,
+    groupId: 0,
+    groupName: '',
+    status: 'in_splitwise' as const,
+    owed: { '101': 5857 },
+    paid: { '101': 10850 },
+    itemCount: 5,
+    peopleCount: 2,
+    participants: [101, 202],
+  }
+
+  it('keeps the counts and drops everything that describes the receipt', () => {
+    const left = redactedForRemoval(data, true)
+    expect(left).toMatchObject({
+      currency: 'USD',
+      totalCents: 10850,
+      itemCount: 5,
+      peopleCount: 2,
+      participants: [101, 202],
+      hadPhoto: true,
+    })
+    expect(typeof left.removedAt).toBe('string')
+    const json = JSON.stringify(left)
+    for (const secret of ['Costco', 'Harvest Snaps', 'Gaurav', '5857', 'merchant', 'items', 'owed', 'paid']) {
+      expect(json).not.toContain(secret)
+    }
+  })
+
+  it('marks the row so the owner can no longer read it', () => {
+    expect(NOT_REMOVED).toEqual({ 'data->>removedAt': 'is.null' })
   })
 })

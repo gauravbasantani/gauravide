@@ -68,6 +68,25 @@ const QA: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
+    q: 'What happens when I remove a split from my dashboard?',
+    a: (
+      <>
+        <p>
+          The receipt is gone for good: the items, the merchant, the date, everyone&rsquo;s names
+          and amounts, and the photo, which is deleted from storage. It disappears from your
+          dashboard and the link stops working, for you as much as anyone.
+        </p>
+        <p>
+          What stays is one anonymous line in the usage totals — the amount, the currency, and how
+          many items and people were involved. Nothing in it can rebuild the receipt. That line is
+          the record of a receipt this app actually split, and one person tidying their own
+          dashboard shouldn&rsquo;t rewrite how much work the app has done. The same is true if the
+          expense is deleted in Splitwise.
+        </p>
+      </>
+    ),
+  },
+  {
     q: 'What can the person who runs Gauravide see?',
     a: (
       <p>

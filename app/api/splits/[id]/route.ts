@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { dbConfigured, deleteOwned, selectOneOwned, updateOwned } from '@/lib/db'
-import type { StoredSplit } from '@/lib/history'
+import { dbConfigured, selectOneOwned, updateOwned } from '@/lib/db'
+import { NOT_REMOVED, redactedForRemoval, type StoredSplit } from '@/lib/history'
 import { getSession, ownerId } from '@/lib/session'
 import { deleteExpense, SplitwiseError } from '@/lib/splitwise'
 import { RECEIPTS_BUCKET, removeObject } from '@/lib/storage'
@@ -22,7 +22,7 @@ async function ownedSplit(params: Promise<{ id: string }>) {
   const { id } = await params
   // A malformed id is simply "not found" — never a database error (review finding 10).
   if (!SplitId.safeParse(id).success) return { error: json(404, 'That saved split was not found.') } as const
-  const split = await selectOneOwned<StoredSplit>('splits', ownerId(session), id)
+  const split = await selectOneOwned<StoredSplit>('splits', ownerId(session), id, NOT_REMOVED)
   if (!split) return { error: json(404, 'That saved split was not found.') } as const
   return { session, token, split } as const
 }
@@ -69,7 +69,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         }
       }
     }
-    const removed = await deleteOwned('splits', ownerId(session), split.id)
+    // Removal redacts rather than deletes: the receipt is gone from the row and
+    // the dashboard, while the anonymous total it contributed to stays (DB-12).
+    const removed = await updateOwned('splits', ownerId(session), split.id, {
+      data: redactedForRemoval(split.data, Boolean(split.image_path)),
+      image_path: null,
+      archived_at: null,
+    })
     // The photo goes with the dashboard copy — never left orphaned in storage.
     if (removed && split.image_path) {
       await removeObject(RECEIPTS_BUCKET, split.image_path).catch(() => undefined)

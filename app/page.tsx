@@ -3,12 +3,12 @@ import { getSession } from '@/lib/session'
 import { splitwiseConfigured } from '@/lib/splitwise'
 import { dbConfigured, selectOwned } from '@/lib/db'
 import { ownerId } from '@/lib/session'
-import type { StoredSplit } from '@/lib/history'
+import { NOT_REMOVED, type StoredSplit } from '@/lib/history'
 import { Dashboard } from '@/components/dashboard/Dashboard'
 import styles from './page.module.css'
 
-/* Every number below comes from the real Costco receipt in tests/fixtures —
-   figures the engine actually produces, not marketing invention. */
+/* Every number below comes from the real Costco receipt in tests/fixtures.
+   These are figures the engine actually produces, not marketing invention. */
 const PREVIEW_ROWS = [
   { name: 'KS Towel', price: '$20.79', flag: 'A', on: [0] },
   { name: 'Flashlight', price: '$26.99', flag: 'A', on: [0] },
@@ -26,14 +26,14 @@ const STEPS = [
   {
     n: '1',
     title: 'Add the receipt',
-    body: 'Photograph it, upload a photo or PDF from Walmart, Safeway or anywhere else, or just type the items in.',
+    body: 'Take a photo, upload a photo or PDF from Walmart, Safeway or anywhere else, or type the items in.',
   },
-  { n: '2', title: 'Check', body: 'Every line read back and editable. Unclear ones are flagged.' },
-  { n: '3', title: 'Split', body: 'Tap who had what — or split equally, by shares, or exact.' },
+  { n: '2', title: 'Check it', body: 'Every line is read back for you to fix. Unclear ones are flagged.' },
+  { n: '3', title: 'Split it', body: 'Tap who had what. Or split equally, by shares, or by exact amounts.' },
   {
     n: '4',
     title: 'Connect and send',
-    body: 'Sign in to Splitwise, pick who paid, and one tap adds the expense — to the cent.',
+    body: 'Sign in to Splitwise, pick who paid, and one tap adds the expense, right to the cent.',
   },
 ]
 
@@ -46,17 +46,17 @@ const CASES = [
   {
     icon: '🍅',
     title: 'Four bags of tomatoes',
-    body: 'Break a quantity line into units — two bags for A and B, one each for C and D.',
+    body: 'Break a quantity line into units. Two bags for A and B, one each for C and D.',
   },
   {
     icon: '＝',
     title: 'Equally, by shares, or exact',
-    body: 'The same choices Splitwise gives you, when itemising isn’t worth it.',
+    body: 'The same choices Splitwise gives you, for when listing every item is not worth it.',
   },
   {
     icon: '👥',
     title: 'Two people paid',
-    body: 'Card for most, cash for the rest? Enter what each put in; balances settle correctly.',
+    body: 'Card for most, cash for the rest? Enter what each person put in and the balances come out right.',
   },
   {
     icon: '🤝',
@@ -76,7 +76,7 @@ const TRUST = [
     body: 'You need a normal free Splitwise account. The Pro subscription their API requires is the developer’s problem, not yours.',
   },
   { title: 'Always adds up', body: 'Whole cents only. If it doesn’t match the receipt, it isn’t sent.' },
-  { title: 'Location stripped', body: 'Photo GPS is removed before upload — nobody learns where you shop.' },
+  { title: 'Location stripped', body: 'Photo GPS is removed before upload, so nobody learns where you shop.' },
   { title: 'Private history', body: 'Your saved splits and receipt photos are visible to your Splitwise account only.' },
 ]
 
@@ -95,7 +95,7 @@ export default async function Home({
     let unavailable = false
     if (dbConfigured) {
       try {
-        splits = await selectOwned<StoredSplit>('splits', ownerId(session))
+        splits = await selectOwned<StoredSplit>('splits', ownerId(session), 50, NOT_REMOVED)
       } catch {
         unavailable = true
       }
@@ -121,9 +121,9 @@ export default async function Home({
         </h1>
 
         <p className={[styles.tagline, 'rise', 'rise-2'].join(' ')}>
-          No spreadsheet, no calculator. Add a photo or PDF of any receipt — Walmart, Safeway,
-          a restaurant bill — or type it in. Tap who had what, and it lands in Splitwise as an
-          exact, itemised expense, tax and all.
+          No spreadsheet. No calculator. Add a photo or PDF of any receipt from Walmart, Safeway,
+          a restaurant, anywhere, or type it in yourself. Tap who had what. It lands in Splitwise as
+          an exact expense, item by item, tax and all.
         </p>
 
         <div className={[styles.actions, 'rise', 'rise-3'].join(' ')}>
@@ -156,7 +156,7 @@ export default async function Home({
         ) : null}
 
         <p className={styles.meta}>
-          <span>Free — no Splitwise Pro needed</span>
+          <span>Free, no Splitwise Pro needed</span>
           <span aria-hidden="true">·</span>
           <span>No app to install</span>
           <span aria-hidden="true">·</span>
@@ -265,7 +265,7 @@ export default async function Home({
             Every way a receipt actually gets split
           </h2>
           <p className={styles.sectionBody}>
-            Dinner, groceries, a road-trip fuel stop — the awkward cases are the point.
+            Dinner, groceries, a fuel stop on a road trip. The messy ones are the point.
           </p>
         </div>
         <div className={styles.cases}>
@@ -293,10 +293,10 @@ export default async function Home({
         </div>
         {splitwiseConfigured() ? (
           <p className={styles.permissionNote}>
-            Splitwise may show a broad account-access notice, because its API has no fine-grained
-            permissions. Gauravide only acts when you tap: loading your friends and groups, adding
-            the expense you confirm, and — if you ask — inviting a person, creating or updating a
-            group, or deleting an expense.
+            Splitwise may show a broad account access notice, because its API has one approval
+            instead of separate permission switches. Gauravide only acts when you tap: loading your
+            friends and groups, adding the expense you confirm, and, if you ask for it, inviting a
+            person, creating or updating a group, or deleting an expense.
           </p>
         ) : null}
       </section>

@@ -274,8 +274,17 @@ test('scan → split → send → dashboard → split page → edit → archive 
   await expect(page.getByText('No splits yet')).toBeVisible()
   state = await backend()
   expect(state.expenses[0]!.deleted).toBe(true)
-  expect(state.splits).toHaveLength(0)
   expect(state.objects).toHaveLength(0) // the photo went with it
+
+  // The row stays, redacted: the receipt is gone, the usage count is not (DB-12).
+  expect(state.splits).toHaveLength(1)
+  const left = state.splits[0]!.data as Record<string, unknown>
+  expect(left.removedAt).toEqual(expect.any(String))
+  expect(typeof left.totalCents).toBe('number')
+  expect(left.hadPhoto).toBe(true)
+  expect(left.merchant).toBeUndefined()
+  expect(left.items).toBeUndefined()
+  expect(left.owed).toBeUndefined()
 
   expect(problems).toEqual([])
 })

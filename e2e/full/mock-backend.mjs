@@ -74,8 +74,12 @@ function field(row, key) {
 function matches(row, params) {
   for (const [key, value] of params) {
     if (['select', 'order', 'limit'].includes(key)) continue
-    if (!value.startsWith('eq.')) continue
     const actual = field(row, key)
+    if (value === 'is.null') {
+      if (actual !== null) return false
+      continue
+    }
+    if (!value.startsWith('eq.')) continue
     if (actual === null || String(actual) !== value.slice(3)) return false
   }
   return true

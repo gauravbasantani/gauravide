@@ -45,6 +45,33 @@ export type StoredSplitData = {
   deletedInSplitwise?: boolean
   /** Amounts came from Splitwise, so the item breakdown may no longer match. */
   itemsStale?: boolean
+  /** Set when the owner removed their copy (DB-12). Contents are gone; counts stay. */
+  removedAt?: string
+  /** Recorded at removal, because the photo itself is deleted with the copy. */
+  hadPhoto?: boolean
+}
+
+/** PostgREST filter for "rows the owner can still see" — removal is not erasure. */
+export const NOT_REMOVED = { 'data->>removedAt': 'is.null' } as const
+
+/**
+ * What is left of a split after its owner removes it (DB-12).
+ *
+ * The receipt goes: merchant, date, line items, names, who owes whom. What
+ * stays is the aggregate the admin dashboard already counts — amount, currency,
+ * how many items and people, which Splitwise accounts were involved. Usage
+ * history is a record of what the app did, and one person deleting their copy
+ * must not rewrite it. Nothing kept here can reconstruct the receipt.
+ */
+export function redactedForRemoval(
+  data: StoredSplitData & Record<string, unknown>,
+  hadPhoto: boolean,
+): Record<string, unknown> {
+  const keep = ['currency', 'totalCents', 'mode', 'groupId', 'itemCount', 'peopleCount', 'payerCount'] as const
+  const summary: Record<string, unknown> = { removedAt: new Date().toISOString(), hadPhoto }
+  for (const field of keep) if (data[field] !== undefined) summary[field] = data[field]
+  if (Array.isArray(data.participants)) summary.participants = data.participants
+  return summary
 }
 
 export type StoredSplit = {

@@ -41,6 +41,8 @@ const SPLIT_COLUMNS = [
   'people_count:data->>peopleCount',
   'payer_count:data->>payerCount',
   'participants:data->participants',
+  'removed_at:data->>removedAt',
+  'had_photo:data->>hadPhoto',
 ].join(',')
 
 const dayFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
@@ -295,6 +297,15 @@ export default async function AdminPage({
             note={`${count(m.itemsSplit)} items split`}
           />
         </div>
+
+        {m.removedByUsers > 0 ? (
+          <p className={styles.groupNote} data-kpi="removed">
+            Includes {count(m.removedByUsers)}{' '}
+            {m.removedByUsers === 1 ? 'receipt that its owner' : 'receipts whose owners'} later removed
+            from their own dashboard, or deleted in Splitwise. The receipt contents are gone; the
+            usage still happened, so it is still counted here.
+          </p>
+        ) : null}
 
         <section className={styles.panel} aria-labelledby="activity-title">
           <div className={styles.panelHead}>

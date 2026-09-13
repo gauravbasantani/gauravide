@@ -1516,3 +1516,35 @@ mention it on the website, and put my contact in the footer."*
 - **COPY-3** The home page leads with the actual job: no spreadsheet, add a photo or PDF from
   Walmart, Safeway or anywhere, or type it in, connect Splitwise, done — and says "free, no
   Splitwise Pro needed" where people look for the catch.
+
+### Removal keeps the count, not the receipt (added 2026-09-12, eighth pass)
+
+*Gaurav: "if some user deletes a receipt from the dashboard or from Splitwise, don't delete it from
+our admin — that should count, that is the real data. You can remove it from his dashboard but not
+the actual count." And: "on the home page there are many hyphens, remove them, make it simple to
+understand what the app is about."*
+
+- **DB-12** **Removal redacts; it never erases the record of use.** "Remove dashboard copy" (and
+  "Delete from Splitwise too") no longer deletes the row. The row is rewritten in place to an
+  aggregate-only summary — amount, currency, mode, group flag, item count, people count, payer
+  count, the Splitwise participant ids, `removedAt`, and `hadPhoto` — and everything that
+  describes the receipt is dropped: merchant, date, line items, people's names, per-person
+  amounts, the idempotency key. The photo object is deleted from storage and `image_path` is
+  cleared. There is no hard delete left in `lib/db.ts`.
+- **DB-13** **A removed row is invisible to its owner.** Every owner-scoped read carries the
+  `NOT_REMOVED` filter (`data->>removedAt=is.null`): the dashboard list, the split page, the
+  image route, the sync route and the edit path. A removed split 404s like any split that never
+  existed; it can never be re-opened, re-edited, re-synced, or its photo fetched.
+- **MET-9** **Admin totals survive a user's delete.** Money split, people in splits, photo share
+  and every event-derived count stay exactly as they were, because deletion no longer removes the
+  evidence. Receipts deleted inside Splitwise itself were already safe — sync flags the split,
+  it never removes it. The admin page names the effect rather than hiding it: "Includes N
+  receipts whose owners later removed them from their own dashboard … the usage still happened,
+  so it is still counted here."
+- **SEC-32** **The user is told exactly this before it happens.** The confirmation and the help
+  text under it say the items, photo and names are deleted for good and that an anonymous line
+  (amount, how many items and people) stays in usage totals. The FAQ and /security say the same.
+- **COPY-4** **Plain home page.** The home page copy uses whole sentences instead of dashes:
+  "No spreadsheet. No calculator. Add a photo or PDF of any receipt from Walmart, Safeway, a
+  restaurant, anywhere, or type it in yourself. Tap who had what." Steps, cases and trust lines
+  were rewritten the same way, and the dashboard empty state with them.

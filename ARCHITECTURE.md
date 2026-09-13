@@ -173,6 +173,13 @@ alter table splits enable row level security;   -- no policy = deny all
 
 **Session 3 adds two more:** `events` (analytics, no financial content) and `feedback`.
 
+**Removal is redaction, not deletion (DB-12).** There is no hard delete. Removing a split rewrites
+`data` to an aggregate-only summary (`removedAt`, `hadPhoto`, amount, currency, mode, group flag,
+item/people/payer counts, participant ids) and clears `image_path` after deleting the object. Every
+owner-scoped read adds `data->>removedAt=is.null` (`NOT_REMOVED`), so the owner can never see, open,
+sync or edit it again — while the admin dashboard's totals, which are the record of what the app
+did, stay true. No migration is needed: the marker lives in the JSONB column.
+
 **Access model — three layers, each independently sufficient:**
 
 | Layer | Protection |

@@ -148,8 +148,8 @@ export function Dashboard({ splits, unavailable }: Props) {
           </span>
           <h2>No splits yet</h2>
           <p>
-            Snap your first receipt. Once it’s in Splitwise, it shows up here — who paid, who owes
-            what — on any device you sign in from.
+            Snap your first receipt. Once it is in Splitwise it shows up here, with who paid and who
+            owes what, on any device you sign in from.
           </p>
           <Link href="/new" className={styles.newReceipt}>
             Split your first receipt

@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { dbConfigured, selectOneOwned, updateOwned } from '@/lib/db'
-import type { StoredSplit } from '@/lib/history'
+import { NOT_REMOVED, type StoredSplit } from '@/lib/history'
 import { getSession, ownerId } from '@/lib/session'
 import { stripJpegMetadata } from '@/lib/exif'
 import { rateLimit } from '@/lib/ratelimit'
@@ -37,7 +37,7 @@ async function ownedSplit(params: Promise<{ id: string }>) {
   const { id } = await params
   if (!SplitId.safeParse(id).success) return { error: json(404, 'Not found.') } as const
   const owner = ownerId(session)
-  const split = await selectOneOwned<StoredSplit>('splits', owner, id)
+  const split = await selectOneOwned<StoredSplit>('splits', owner, id, NOT_REMOVED)
   if (!split) return { error: json(404, 'Not found.') } as const
   return { owner, split } as const
 }

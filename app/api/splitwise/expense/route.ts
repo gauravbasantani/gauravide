@@ -12,7 +12,7 @@ import {
   selectOneOwned,
   updateOwned,
 } from '@/lib/db'
-import type { StoredSplit } from '@/lib/history'
+import { NOT_REMOVED, type StoredSplit } from '@/lib/history'
 
 export const runtime = 'nodejs'
 
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       return fail(503, 'history_unavailable', 'Editing needs your saved splits, which are unavailable right now.')
     }
     try {
-      editing = await selectOneOwned<StoredSplit>('splits', owner, input.edit.splitId)
+      editing = await selectOneOwned<StoredSplit>('splits', owner, input.edit.splitId, NOT_REMOVED)
     } catch {
       return fail(502, 'history_unavailable', 'Couldn’t load that saved split. Try again.')
     }

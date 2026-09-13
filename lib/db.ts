@@ -74,12 +74,18 @@ export async function selectAll<T>(table: string, limit = 500, columns = '*'): P
   return (await res.json()) as T[]
 }
 
-export async function selectOwned<T>(table: string, ownerId: string, limit = 50): Promise<T[]> {
+export async function selectOwned<T>(
+  table: string,
+  ownerId: string,
+  limit = 50,
+  filters: Record<string, string> = {},
+): Promise<T[]> {
   const params = new URLSearchParams({
     select: '*',
     owner_id: `eq.${ownerId}`, // ownership enforced on every read (DB-4)
     order: 'created_at.desc',
     limit: String(limit),
+    ...filters,
   })
   const res = await request(`${table}?${params}`, { method: 'GET' })
   if (!res.ok) throw new DbError(`select ${table} ${res.status}`)
@@ -90,12 +96,14 @@ export async function selectOneOwned<T>(
   table: string,
   ownerId: string,
   id: string,
+  filters: Record<string, string> = {},
 ): Promise<T | null> {
   const params = new URLSearchParams({
     select: '*',
     owner_id: `eq.${ownerId}`,
     id: `eq.${id}`,
     limit: '1',
+    ...filters,
   })
   const res = await request(`${table}?${params}`, { method: 'GET' })
   if (!res.ok) throw new DbError(`select one ${table} ${res.status}`)
@@ -142,15 +150,11 @@ export async function updateOwned(
   return ((await res.json()) as unknown[]).length === 1
 }
 
-export async function deleteOwned(table: string, owner: string, id: string): Promise<boolean> {
-  const params = new URLSearchParams({ id: `eq.${id}`, owner_id: `eq.${owner}` })
-  const res = await request(`${table}?${params}`, {
-    method: 'DELETE',
-    headers: { prefer: 'return=representation' },
-  })
-  if (!res.ok) throw new DbError(`delete ${table} ${res.status}`)
-  return ((await res.json()) as unknown[]).length === 1
-}
+/*
+ * There is deliberately no hard delete. Removing a split redacts the row in
+ * place (see `redactedForRemoval`) so the receipt disappears while the usage
+ * count it contributed to stays true (DB-12).
+ */
 
 /** Distinguishes "the database is cold" from "the query was wrong" (DB-9). */
 export class DbError extends Error {

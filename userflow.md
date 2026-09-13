@@ -456,6 +456,24 @@ original one resurrected.
 Two-expense submissions (the guest case) delete, undo, and restore **as one unit**. Half a
 receipt must never be left sitting in Splitwise.
 
+### What "remove" actually removes (DB-12)
+
+Removing the dashboard copy destroys the receipt and keeps the count. Items, merchant, date,
+names and per-person amounts are overwritten; the photo is deleted from storage; the split
+disappears from the dashboard and its link 404s, for its owner too. What is left on the row is one
+anonymous summary — amount, currency, item/people counts, participant ids, `removedAt` — which
+cannot rebuild the receipt but keeps the admin totals honest:
+
+```
+Confirm ▸ "The items and photo are deleted for good, and the Splitwise expense stays unchanged."
+Row      ▸ { removedAt, hadPhoto, currency, totalCents, itemCount, peopleCount, participants }
+Admin    ▸ "Includes 3 receipts whose owners later removed them … still counted here."
+```
+
+Deleting the expense inside Splitwise itself changes nothing here beyond a flag: **Check
+Splitwise** notices it is gone and says so. The usage count stands either way — it records that
+the app split a receipt, which remains true after anyone deletes their copy.
+
 ---
 
 ## Walkthroughs

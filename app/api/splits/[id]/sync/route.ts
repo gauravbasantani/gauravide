@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { dbConfigured, selectOneOwned, updateOwned } from '@/lib/db'
-import type { StoredSplit } from '@/lib/history'
+import { NOT_REMOVED, type StoredSplit } from '@/lib/history'
 import { formatMoney } from '@/lib/money'
 import { getSession, ownerId } from '@/lib/session'
 import { createExpense, getExpense, SplitwiseError } from '@/lib/splitwise'
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   let split: StoredSplit | null
   try {
-    split = await selectOneOwned<StoredSplit>('splits', owner, id)
+    split = await selectOneOwned<StoredSplit>('splits', owner, id, NOT_REMOVED)
   } catch {
     return json(502, 'Couldn’t load that saved split. Try again.')
   }

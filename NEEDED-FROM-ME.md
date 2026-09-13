@@ -130,14 +130,6 @@ stops working.*
 | Region | **West US (North California)** — closest to Arizona |
 | Plan | **Free** |
 
-- [ ] Under **Security**, set these three:
-
-| Setting | Choose | Why |
-|---|---|---|
-| Enable Data API | ✅ **checked** | How our server code reaches the database |
-| Automatically expose new tables | ❌ **unchecked** | Stops tables being granted to the public `anon` role |
-| Enable automatic RLS | ✅ **checked** | Row Level Security on by default = deny-all backstop |
-
 - [ ] Click **Create new project** → wait ~2 minutes while it sets up
 
 Now get the two values:

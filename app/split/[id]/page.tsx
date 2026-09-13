@@ -4,6 +4,7 @@ import { formatMoney } from '@/lib/money'
 import { dbConfigured, selectOneOwned } from '@/lib/db'
 import { getSession, ownerId } from '@/lib/session'
 import {
+  NOT_REMOVED,
   paidByLabel,
   payersOf,
   viewerBalance,
@@ -35,7 +36,7 @@ export default async function SplitDetailPage({ params }: { params: Promise<{ id
   if (!UUID.test(id)) notFound()
   let split: StoredSplit | null = null
   try {
-    split = await selectOneOwned<StoredSplit>('splits', ownerId(session), id)
+    split = await selectOneOwned<StoredSplit>('splits', ownerId(session), id, NOT_REMOVED)
   } catch {
     notFound()
   }
