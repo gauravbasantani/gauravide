@@ -769,3 +769,31 @@
   font-size: var(--text-meta);
   font-weight: 600;
 }
+
+/* Feedback email delivery is off: a standing note, not an error — the inbox
+   below is still complete. */
+.emailOff {
+  margin: 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+  font-size: var(--text-caption);
+}
+
+.testEmail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-4);
+  font-size: var(--text-caption);
+}
+
+.testOk {
+  color: var(--success-text);
+}
+
+.testFail {
+  color: var(--danger-text);
+}

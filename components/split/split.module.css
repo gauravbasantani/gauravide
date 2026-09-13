@@ -577,3 +577,100 @@
   font-size: var(--text-meta);
   font-weight: 500;
 }
+
+/* ── Share link ────────────────────────────────────────────── */
+.sharedBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--primary-subtle);
+}
+
+.sharedBanner strong {
+  display: block;
+  font-size: var(--text-meta);
+}
+
+.sharedBanner p {
+  max-width: 42rem;
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.sharedCta {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--primary-on);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sharedCta:hover {
+  background: var(--primary-hover);
+}
+
+.sharedFooter {
+  margin-top: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+/* ── Share panel (owner) ───────────────────────────────────── */
+.share {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  margin-top: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.share h2 {
+  margin: 0;
+  font-size: var(--text-meta);
+}
+
+.share p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.shareLink {
+  flex: 1 1 18rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-caption);
+}
+
+.shareError {
+  color: var(--danger-text) !important;
+}

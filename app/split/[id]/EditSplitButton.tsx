@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { saveDraft } from '@/lib/draft'
 import { draftFromSplit, type StoredSplit } from '@/lib/history'
 import { clearDraftImage } from '@/lib/imageStore'
-import styles from './split.module.css'
+import styles from '@/components/split/split.module.css'
 
 /** Reopen a saved split in the flow; saving updates the same Splitwise expense (FR-39). */
 export function EditSplitButton({ split }: { split: StoredSplit }) {

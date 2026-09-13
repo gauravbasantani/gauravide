@@ -161,6 +161,36 @@ I'll walk you through the import once the app exists.
 
 ---
 
+## ⑥b Resend · 4 min *(needed for feedback alerts)*
+
+*Why: without this, a message sent through the contact form is saved to the database and shows up
+in `/admin` — but nothing reaches your inbox, so you only find out when you go looking. This is the
+piece that emails you the moment someone writes in.*
+
+- [ ] Go to **resend.com** → **Sign up** (the free plan sends 100 emails a day — far more than
+      this needs)
+- [ ] Verify your email address
+- [ ] In the dashboard, open **API Keys** → **Create API Key**
+- [ ] Name it `gauravide`, permission **Sending access**, → **Add**
+- [ ] Copy the key *now* — it is shown once. It starts with `re_`
+- [ ] Decide which inbox the alerts go to. If it isn't `gaurav.inbox29@gmail.com`, note the address
+
+**Sending domain — pick one:**
+
+- **Easiest:** do nothing. Resend's shared `onboarding@resend.dev` address works immediately and
+  is the default the app already uses. Alerts may land in spam the first time — mark one as
+  "not spam" and it stops.
+- **Better, later:** in Resend → **Domains** → add a domain you own, add the DNS records it shows,
+  then set `ADMIN_EMAIL_FROM=Gauravide <alerts@yourdomain.com>`.
+
+**You now have:** `RESEND_API_KEY`, and optionally `ADMIN_EMAIL` / `ADMIN_EMAIL_FROM`
+
+> After adding the key, open `/admin` and look at the **Feedback inbox** panel. It says in one
+> line whether email alerts are on, so you never have to guess. Send yourself a test message
+> through `/contact` to confirm.
+
+---
+
 ## ⑦ UptimeRobot · 2 min *(optional but worth it)*
 
 *Why: emails you if the site ever goes down, so you find out before your friends do.*
@@ -197,6 +227,11 @@ APP_URL=http://localhost:3000
 SUPABASE_URL=
 SUPABASE_SERVICE_KEY=
 ADMIN_USER_IDS=
+
+# feedback alerts — without RESEND_API_KEY, contact-form messages are saved
+# and visible in /admin, but no email is sent
+RESEND_API_KEY=
+ADMIN_EMAIL=gaurav.inbox29@gmail.com
 ```
 
 **Rules for filling it in:**

@@ -1,7 +1,22 @@
 import { test, expect, type Page } from '@playwright/test'
 
-/** Manual entry with one priced item, so "Looks right" is enabled. */
+/**
+ * Manual entry with one priced item, so "Looks right" is enabled — on a page
+ * mocked as signed in, because the people step has no signed-out path.
+ */
 async function reachAssignStep(page: Page) {
+  await page.route('**/api/splitwise/me', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        signedIn: true,
+        me: { id: 101, name: 'Gaurav' },
+        friends: [{ id: 202, name: 'Alex' }],
+        groups: [],
+      }),
+    }),
+  )
   await page.goto('/new')
   await page.getByRole('button', { name: 'Type it in' }).click()
   await page.getByRole('button', { name: /add item/i }).click()
@@ -9,9 +24,6 @@ async function reachAssignStep(page: Page) {
   await page.getByLabel(/price of/i).fill('24.00')
   await page.getByRole('button', { name: /looks right/i }).click()
   await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
-  // Signed out, adding names is behind this disclosure (Splitwise comes first).
-  const disclosure = page.getByText('Split without signing in')
-  if (await disclosure.isVisible().catch(() => false)) await disclosure.click()
 }
 
 /**
@@ -23,9 +35,9 @@ test('AUDIT: typing in the Add-person sheet does not lose focus', async ({ page 
   // The Sheet effect re-ran on every parent render because callers pass an
   // inline onClose. Every keystroke yanked focus out of the dialog.
   await reachAssignStep(page)
-  await page.getByRole('button', { name: /add (a name|person)/i }).click()
+  await page.getByRole('button', { name: /add person/i }).click()
 
-  const field = page.getByLabel(/^name$/i)
+  const field = page.getByLabel(/name or friend search/i)
   await field.click()
   await field.pressSequentially('Maya', { delay: 40 })
 
@@ -51,7 +63,9 @@ test('AUDIT: a disabled button always explains why', async ({ page }) => {
   await expect(review).toBeDisabled()
   const describedBy = await review.getAttribute('aria-describedby')
   expect(describedBy, 'must point at a reason').toBeTruthy()
-  await expect(page.locator(`#${describedBy}`)).toContainText(/add at least one person/i)
+  // Signed in, you are already in the split, so the outstanding reason is the
+  // unassigned item. What matters is that there IS a reason, and it is specific.
+  await expect(page.locator(`#${describedBy}`)).toContainText(/still needs? someone/i)
 })
 
 test('AUDIT: Escape closes the sheet and returns focus to its trigger', async ({
@@ -65,7 +79,7 @@ test('AUDIT: Escape closes the sheet and returns focus to its trigger', async ({
 
   await reachAssignStep(page)
 
-  const trigger = page.getByRole('button', { name: /add (a name|person)/i })
+  const trigger = page.getByRole('button', { name: /add person/i })
   await trigger.click()
   await expect(page.getByRole('dialog')).toBeVisible()
 
@@ -77,7 +91,7 @@ test('AUDIT: Escape closes the sheet and returns focus to its trigger', async ({
 test('AUDIT: Cancel closes the sheet on any device', async ({ page }) => {
   await reachAssignStep(page)
 
-  await page.getByRole('button', { name: /add (a name|person)/i }).click()
+  await page.getByRole('button', { name: /add person/i }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
 
   await page.getByRole('button', { name: /^cancel$/i }).click()

@@ -59,13 +59,15 @@ async function manualReceipt(page: Page, name: string, price: string) {
   await page.getByRole('button', { name: /looks right/i }).click()
 }
 
-/** Signed out, typing names sits behind "Split without signing in". */
+/**
+ * Add someone by typing a name. Needs a signed-in page: the people step has no
+ * signed-out path any more, because a split typed without Splitwise could
+ * never be sent.
+ */
 async function addName(page: Page, name: string) {
-  const disclosure = page.getByText('Split without signing in')
-  if (await disclosure.isVisible().catch(() => false)) await disclosure.click()
-  await page.getByRole('button', { name: /add (a name|person)/i }).first().click()
-  await page.getByLabel(/^name$/i).fill(name)
-  await page.getByRole('button', { name: /add to split/i }).click()
+  await page.getByRole('button', { name: /add person/i }).first().click()
+  await page.getByLabel(/name or friend search/i).fill(name)
+  await page.getByRole('button', { name: /add only to this split/i }).click()
 }
 
 async function addFriend(page: Page, name: string) {
@@ -88,6 +90,7 @@ test.describe('the whole split, end to end', () => {
       }
     })
 
+    await mockSignedIn(page)
     await page.goto('/new')
 
     // 1. Upload — set the file on the real input behind the label.
@@ -113,7 +116,9 @@ test.describe('the whole split, end to end', () => {
     // 3. Split — the screen explains why people are needed before asking.
     await expect(page.getByRole('heading', { name: /who’s splitting this/i })).toBeVisible()
     await expect(page.getByText(/add everyone on this bill/i)).toBeVisible()
-    for (const name of ['Gaurav', 'Alex']) await addName(page, name)
+    // Signed in, you are already in the split — add the other person only.
+    await expect(page.getByRole('button', { name: /^gaurav/i }).first()).toBeVisible()
+    await addName(page, 'Alex')
 
     // Blocked until every item has someone.
     const next = page.getByRole('button', { name: /next: who paid/i })
@@ -204,6 +209,7 @@ test.describe('the whole split, end to end', () => {
   })
 
   test('removing an item keeps everyone else on the right line', async ({ page }) => {
+    await mockSignedIn(page)
     await page.goto('/new')
     await page.getByRole('button', { name: 'Type it in' }).click()
     await page.getByLabel(/item 1 name/i).fill('Steak')
@@ -359,11 +365,12 @@ test.describe('the whole split, end to end', () => {
         }),
       }),
     )
+    await mockSignedIn(page)
     await page.goto('/new')
     await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
     await page.getByRole('button', { name: /read this receipt/i }).click()
     await page.getByRole('button', { name: /looks right/i }).click()
-    for (const name of ['Gaurav', 'Mayur']) await addName(page, name)
+    await addName(page, 'Mayur') // Gaurav is already here as the signed-in user
     await page.getByRole('button', { name: 'Gaurav, sharing KS TOWEL' }).click()
     await page.getByRole('button', { name: 'Mayur, sharing HVST SNAPS' }).click()
 
@@ -378,12 +385,16 @@ test.describe('the whole split, end to end', () => {
     await expect(page.locator('[data-share]').nth(1)).toHaveText('$5.59')
   })
 
-  test('signed out, the people step leads with Splitwise sign-in', async ({ page }) => {
+  test('signed out, signing in with Splitwise is the only way on', async ({ page }) => {
     await manualReceipt(page, 'Dinner', '20.00')
     const signIn = page.getByRole('link', { name: /sign in with splitwise to add friends/i })
     await expect(signIn).toBeVisible()
     await expect(signIn).toHaveAttribute('href', '/api/auth/login?next=/new')
-    await expect(page.getByText('Split without signing in')).toBeVisible()
+    // The dead end is gone: no way to type names into a split that could
+    // never be sent anywhere.
+    await expect(page.getByText('Split without signing in')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /add person/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /next: who paid/i })).toBeDisabled()
   })
 
   test('a typed name can be linked to a Splitwise friend without losing its items', async ({

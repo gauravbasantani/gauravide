@@ -98,6 +98,7 @@ Where the actual work happens. Pure where possible, I/O isolated where not.
 | `splitwise.ts` | Typed client for the Splitwise API | ❌ I/O |
 | `session.ts` | Encrypted cookie read/write | ❌ I/O |
 | `db.ts` | Supabase access, ownership checks | ❌ I/O |
+| `share.ts` | Read-only split links: mint, resolve, revoke a token | ❌ I/O |
 | `events.ts` | Analytics — financial content physically cannot enter | ❌ I/O |
 
 **`money.ts` and `split.ts` are the heart of the application.** They are pure functions with no
@@ -206,6 +207,13 @@ being run. Committed to git — the schema's history is part of the code's histo
 | User's Splitwise token | Encrypted `HttpOnly` cookie | In the database, in JS |
 | Receipt images | Private bucket, signed URLs | Public, guessable |
 | Receipt contents | `splits.data`, owner-scoped | In logs, in analytics |
+
+**One deliberate exception to owner-scoping: the share link.** `/s/[token]` and
+`/api/s/[token]/image` are the only reads not keyed to a session. The token *is* the
+authorisation — 192 random bits, matched against `splits.data->>shareToken` and rejected by shape
+before it reaches the database. It grants reading one split and its photo, nothing else; it is
+revoked by discarding it, and it disappears with the split when the owner removes it, because
+removal redacts `data`. Both responses are `noindex`.
 
 **Two independently untrusted inputs**, both Zod-validated before touching logic:
 1. **The user** — files, form fields, feedback text

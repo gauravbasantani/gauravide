@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import styles from './split.module.css'
+import styles from '@/components/split/split.module.css'
 
 type Props = { splitId: string; archived: boolean; hasSplitwiseExpense: boolean }
 

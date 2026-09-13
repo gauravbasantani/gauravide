@@ -45,6 +45,9 @@ export type StoredSplitData = {
   deletedInSplitwise?: boolean
   /** Amounts came from Splitwise, so the item breakdown may no longer match. */
   itemsStale?: boolean
+  /** Present while a read-only share link exists for this split (FR-53). */
+  shareToken?: string
+  sharedAt?: string
   /** Set when the owner removed their copy (DB-12). Contents are gone; counts stay. */
   removedAt?: string
   /** Recorded at removal, because the photo itself is deleted with the copy. */

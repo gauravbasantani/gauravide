@@ -910,9 +910,14 @@ size and weight — strip every colour out and it must still read correctly.
   says whether it adds up to the printed total.
 
 ### Screen 3 — Who's splitting
-- **Signed out:** Splitwise sign-in leads; "Split without signing in" is a disclosure that states
-  its limit (names only, can't be sent to Splitwise). A name added that way can be linked to a
-  real friend later with **Link**, and its items, shares and payments move across.
+- **Signed out:** the only way on is **Sign in with Splitwise**, with one line saying why, and the
+  step's own button disabled reading "Sign in with Splitwise to add people". The old "Split without
+  signing in" disclosure is gone — it let people build a whole split that could never be sent, and
+  they found out on the last screen. The receipt is saved while you sign in, and you come back to
+  this exact step.
+- **Signed in, not a Splitwise friend:** the add-person sheet still has "Add only to this split
+  (not Splitwise)", and such a name can be linked to a real friend later with **Link** — its items,
+  shares and payments move across.
 - **Signed in:** you are added automatically. Friends first in the sheet, then "Not in your
   friends list yet?" with the email invite.
 - Four modes, switchable at any time: by item · equally · by shares · exact amounts.
@@ -938,8 +943,13 @@ size and weight — strip every colour out and it must still read correctly.
 ### After sending — Your splits
 - The receipt photo is uploaded to private storage and kept with the split (📷 on the row).
 - The split page shows the photo beside who paid and who owes, then every item with who shared
-  it and how, then Edit / Open in Splitwise / archive / remove / delete.
+  it and how, then Edit / Open in Splitwise / share / archive / remove / delete.
 - **Edit split** reopens the whole flow and updates the same Splitwise expense — never a duplicate.
+- **Share this receipt** creates a read-only link, `/s/<token>`, with Copy link and Turn off link.
+  Anyone who opens it sees the same page — photo, who paid, who owes what, settle-up, every item
+  and the faces on it — with no sign-in and nothing to tap. Nobody is addressed as "you" there, so
+  every person is named. Turning the link off kills it for everyone immediately, and removing the
+  split for good takes the link with it. The page is never indexed.
 
 ### Admin (superuser only)
 - `/admin` redirects to `/admin/login`: username and password only (the Splitwise route was
@@ -949,3 +959,7 @@ size and weight — strip every colour out and it must still read correctly.
   reads "Sign out of admin" — the app's own Splitwise sign-in is a separate thing.
 - The dashboard answers: how many people, how often they come back, how much was split, and how
   much time it saved — counts only, no receipt contents, accounts under keyed pseudonyms.
+- The **Feedback inbox** panel says in one line whether email alerts are on and to which masked
+  address, or that they are off and which variable turns them on. **Send a test alert** proves the
+  path without waiting for real feedback, and shows the email provider's own refusal if it fails.
+  Feedback is saved to the database either way — email is the notification, never the record.

@@ -163,3 +163,26 @@ export class DbError extends Error {
     this.name = 'DbError'
   }
 }
+
+/**
+ * The row whose JSON `data` has `field` equal to `value`, with no owner check.
+ *
+ * Only for lookups keyed by an unguessable secret the caller already holds —
+ * today, a split's share token. Never call it with a value a visitor could
+ * enumerate.
+ */
+export async function findByDataField<T>(
+  table: string,
+  field: string,
+  value: string,
+): Promise<T | null> {
+  const params = new URLSearchParams({
+    select: '*',
+    [`data->>${field}`]: `eq.${value}`,
+    limit: '1',
+  })
+  const res = await request(`${table}?${params}`, { method: 'GET' })
+  if (!res.ok) throw new DbError(`find ${table} ${res.status}`)
+  const rows = (await res.json()) as T[]
+  return rows[0] ?? null
+}

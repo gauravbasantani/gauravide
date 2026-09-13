@@ -50,6 +50,16 @@ export default function Security() {
           by default. Signed out, nothing is stored.
         </p>
         <p>
+          <strong>A share link is the one exception, and only when you make one.</strong> On a
+          saved split you can create a read-only link. Until you do, there isn&rsquo;t one. While
+          it exists, anyone holding that link can read that one receipt and see its photo without
+          signing in &mdash; so treat it like the receipt itself and only send it to people who
+          were on the bill. The link is a long random address that cannot be guessed or found by
+          search engines, it opens nothing else in your account, and it can never change anything.
+          <strong>Turn off link</strong> kills it instantly for everyone, and removing the split
+          removes the link with it.
+        </p>
+        <p>
           <strong>When you remove a split</strong>, the receipt is destroyed: items, merchant, date,
           names and per-person amounts are overwritten and the photo is deleted from storage. One
           anonymous line stays in the usage totals — amount, currency, and how many items and people
@@ -63,7 +73,9 @@ export default function Security() {
         <ul>
           <li>
             <strong>Every request is checked.</strong> Reads and writes filter on both the record id
-            and your account id, so one person’s link cannot reach another person’s split.
+            and your account id, so one person’s link cannot reach another person’s split. The only
+            reads that work without a signed-in account are share links you created yourself, and
+            each opens exactly one receipt.
           </li>
           <li>
             <strong>Secrets stay on the server.</strong> The database service key and the Splitwise

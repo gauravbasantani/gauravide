@@ -120,7 +120,11 @@ export function AssignStep({
     return {}
   }, [plan, settings, receipt, assignments, people, total])
 
-  const blocker = plan.ok || isPayerProblem(plan) ? undefined : problemText(plan, currency, people)
+  const planBlocker = plan.ok || isPayerProblem(plan) ? undefined : problemText(plan, currency, people)
+  // Signed out with nobody added, "add at least one person" points at a button
+  // that isn't there any more. Say the thing that actually unblocks them.
+  const blocker =
+    canSignIn && people.length === 0 ? 'Sign in with Splitwise to add people' : planBlocker
   // What actually applies — discounts follow the item they discount (FR-42).
   const effective = useMemo(
     () => effectiveAssignments(receipt, assignments, settings.itemSplits),
@@ -283,23 +287,15 @@ export function AssignStep({
               </a>
             ) : null}
             {canSignIn ? (
-              <details className={styles.manual}>
-                <summary>Split without signing in</summary>
-                <p>
-                  Type names just for this receipt. You’ll get the per-person totals to copy, but
-                  it can’t be added to Splitwise until those people are Splitwise friends.
-                </p>
-                <Button
-                  ref={addPersonTrigger}
-                  variant="secondary"
-                  onClick={() => {
-                    setAddError(null)
-                    setAdding(true)
-                  }}
-                >
-                  + Add a name
-                </Button>
-              </details>
+              /*
+               * Signing in is the only way on from here. Typing names without
+               * it produced a split that could never be sent — a dead end the
+               * user only discovered at the last step, after all the work.
+               */
+              <p className={styles.signInWhy}>
+                Splitting needs your Splitwise friends, and sending the expense needs the
+                connection anyway. Your receipt is saved while you sign in.
+              </p>
             ) : (
               <>
                 <p>Nobody here yet. Start with you, then add the others.</p>

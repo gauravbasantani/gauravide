@@ -42,6 +42,10 @@ const QA: { q: string; a: React.ReactNode }[] = [
           a check on every request, and deleted when you remove the split from your dashboard.
           Signed out, nothing is stored anywhere.
         </p>
+        <p>
+          The one way anyone else sees it is a <strong>share link you create yourself</strong> —
+          see below. There is no such link until you make one.
+        </p>
       </>
     ),
   },
@@ -112,11 +116,37 @@ const QA: { q: string; a: React.ReactNode }[] = [
   {
     q: 'Can I split with someone who isn’t on Splitwise?',
     a: (
-      <p>
-        You can add them by name and the maths will be right, but the expense can only be pushed to
-        Splitwise if everyone in it has a Splitwise account. For anyone else, copy the summary at
-        the end of the flow.
-      </p>
+      <>
+        <p>
+          Yes, once you are signed in. In the add-person sheet, type their name and choose{' '}
+          <strong>Add only to this split</strong> — the maths will be right and they appear
+          everywhere in the breakdown. Splitwise itself only accepts an expense where everyone has
+          an account, so the expense is sent for the people who do.
+        </p>
+        <p>
+          To show that person their part, create a <strong>share link</strong> on the saved split
+          and send it to them. It opens for anyone, with no account.
+        </p>
+      </>
+    ),
+  },
+  {
+    q: 'Can I show a split to someone without making them sign in?',
+    a: (
+      <>
+        <p>
+          Yes. Open the split under Your splits and press <strong>Create share link</strong>. That
+          gives you a link showing the same page you see — the receipt photo, every item and who
+          shared it, who paid, and who owes whom. Whoever opens it needs no account and cannot
+          change anything.
+        </p>
+        <p>
+          The link is a long random address: it cannot be guessed, and search engines are told not
+          to index it. Anyone you send it to can pass it on, though, so treat it like the receipt
+          itself. <strong>Turn off link</strong> stops it working for everyone straight away, and
+          removing the split removes its link too.
+        </p>
+      </>
     ),
   },
   {

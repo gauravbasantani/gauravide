@@ -116,7 +116,10 @@ test.beforeEach(async ({ context }) => {
   await signIn(context)
 })
 
-test('scan → split → send → dashboard → split page → edit → archive → delete', async ({ page }) => {
+test('scan → split → send → dashboard → split page → edit → archive → delete', async ({
+  page,
+  browser,
+}) => {
   const problems = watchForBreakage(page)
   page.on('dialog', (dialog) => void dialog.accept())
   await page.route('**/api/receipt/extract', (route) =>
@@ -258,6 +261,38 @@ test('scan → split → send → dashboard → split page → edit → archive 
   await expectNoErrorScreen(page)
   await expect(page.getByText('Paid the whole bill')).toBeVisible()
   await expect(page.getByAltText('Receipt from Costco Tempe')).toBeVisible()
+
+  /* ── Share link: the same receipt, read-only, without an account ──── */
+  await page.getByRole('button', { name: /create share link/i }).click()
+  const link = page.getByLabel('Share link')
+  await expect(link).toHaveValue(/\/s\/[A-Za-z0-9_-]{16,}$/)
+  const shareUrl = await link.inputValue()
+
+  // A stranger's browser: no session cookie, nothing signed in.
+  const stranger = await browser.newContext()
+  const visitor = await stranger.newPage()
+  const visitorProblems = watchForBreakage(visitor)
+  await visitor.goto(shareUrl)
+  await expect(visitor.getByRole('heading', { name: 'Costco Tempe' })).toBeVisible()
+  await expect(visitor.getByText('Shared with you')).toBeVisible()
+  // Everything the owner sees of the receipt itself.
+  await expect(visitor.getByRole('heading', { name: 'Who owes what' })).toBeVisible()
+  await expect(visitor.getByText('KS TOWEL')).toBeVisible()
+  await expect(visitor.getByAltText('Receipt from Costco Tempe')).toBeVisible()
+  await expect(visitor.getByText('$40.27').first()).toBeVisible()
+  // And none of what only the owner may do — or be told.
+  await expect(visitor.getByRole('button', { name: /edit split/i })).toHaveCount(0)
+  await expect(visitor.getByRole('button', { name: /archive receipt/i })).toHaveCount(0)
+  await expect(visitor.getByRole('button', { name: /create share link/i })).toHaveCount(0)
+  await expect(visitor.getByText(/you lent|you borrowed|\(you\)/i)).toHaveCount(0)
+  expect(visitorProblems).toEqual([])
+
+  // Revoking is immediate: the link a friend kept stops resolving.
+  await page.getByRole('button', { name: /turn off link/i }).click()
+  await expect(page.getByRole('button', { name: /create share link/i })).toBeVisible()
+  const revoked = await visitor.goto(shareUrl)
+  expect(revoked?.status()).toBe(404)
+  await stranger.close()
 
   /* ── Archive and restore ──────────────────────────────────────────── */
   await page.getByRole('button', { name: /archive receipt/i }).click()

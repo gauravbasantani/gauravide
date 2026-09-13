@@ -6,6 +6,8 @@ import { opaqueUserId } from '@/lib/admin'
 import { isAdminRequest } from '@/lib/adminAuth'
 import { computeMetrics, TIME_MODEL, type EventRow, type Metrics, type Range, type SplitRow } from '@/lib/metrics'
 import { formatMoney } from '@/lib/money'
+import { adminEmail, emailConfigured, maskEmail } from '@/lib/email'
+import { TestEmailButton } from './TestEmailButton'
 import styles from './admin.module.css'
 
 export const metadata = { title: 'Admin · Gauravide', robots: { index: false, follow: false } }
@@ -436,6 +438,15 @@ export default async function AdminPage({
             <h3 id="feedback-title">Feedback inbox</h3>
             <span>{feedback.length} latest · sent to you on purpose</span>
           </div>
+          {/* Every message is saved here whatever happens to email. This line
+              only says whether one also lands in an inbox — so a silent inbox
+              is never mistaken for silence from users. */}
+          <p className={emailConfigured() ? styles.empty : styles.emailOff}>
+            {emailConfigured()
+              ? `Email alerts are on — each new message is also sent to ${maskEmail(adminEmail())}.`
+              : 'Email alerts are off, so new feedback only appears here. Set RESEND_API_KEY (and ADMIN_EMAIL) to be emailed each time.'}
+          </p>
+          <TestEmailButton />
           <div className={styles.feedback}>
             {feedback.length === 0 ? <p className={styles.empty}>No feedback yet.</p> : null}
             {feedback.map((item) => (

@@ -1460,10 +1460,10 @@ an upload — what should it be? … on mobile, tapping Next doesn't go back to 
   it on a phone.
 - **FR-45** **Every step starts at its own top.** With the sticky CTA on a phone, moving on left
   people mid-screen.
-- **FR-46** **Signed out, the people step leads with Splitwise sign-in**; splitting by typed
-  names is a deliberate second choice ("Split without signing in") that states its limit. Signed
-  in, the add-person sheet keeps friends first and adds "Not in your friends list yet?" above
-  the email invite.
+- **FR-46** **Signed out, the people step leads with Splitwise sign-in.** *(Superseded by FR-52
+  on 2026-09-13: the "Split without signing in" second choice was removed, because it produced a
+  split that could never be sent.)* Signed in, the add-person sheet keeps friends first and adds
+  "Not in your friends list yet?" above the email invite.
 - **VIS-9** Depth and motion: drifting gradient blobs (`.aurora`), a wave divider into the
   first band, rise-in entrances and hover lift — hand-written CSS and inline SVG only (no
   animation library, no external image service), and all of it still under the app's
@@ -1571,3 +1571,57 @@ from Splitwise, then also archive here."*
   Leaving the page or closing the tab flushes the removal with a `keepalive` request; if that
   fails, nothing is destroyed and the split simply stays. Deleting from Splitwise is still
   confirmed first, because it changes a shared expense for everyone.
+
+### Sign-in is the only way past the people step, and a split can be shared as a link (added 2026-09-13, ninth pass)
+
+*Gaurav: "at split step it should only have one option sign in with splitwise, there should not be
+an option split without sign in, it's of no use at the end … at the individual split, from the
+dashboard you go to a split and see all the details — you should also be able to share that split
+via a link that shows the receipt, items, who divided it and who paid, a good viewable option as a
+link to anyone that does not require sign in … and the 'notify me if anyone filled the contact
+form' — I tried it and I didn't get a notification."*
+
+- **FR-52** **The people step has one way forward: sign in with Splitwise.** The "Split without
+  signing in" disclosure is gone. Typing names while signed out built a whole split — people,
+  items, payers — that could not be sent anywhere, and the user only found that out on the last
+  screen, after all the work. Signed out, the empty people panel now shows the Splitwise sign-in
+  card and one line saying why it is needed, and the step's own CTA is disabled with the reason
+  *"Sign in with Splitwise to add people"* rather than the now-unreachable "Add at least one
+  person". Nothing is lost by signing in: the receipt is already saved in the draft and the flow
+  returns to exactly this step. Signed in, adding someone who is not a Splitwise friend is still
+  possible from the add-person sheet ("Add only to this split").
+- **FR-53** **A saved split can be shared as a read-only link.** The split page gains a *Share
+  this receipt* panel. **Create share link** mints a token and shows `/s/<token>`, with **Copy
+  link** and **Turn off link**. Opening that link shows the same page the owner sees — merchant,
+  date, total, receipt photo, who paid, who owes what, the settle-up transfers, and every item
+  with the faces that shared it — rendered by the same component (`components/split/SplitView.tsx`),
+  so the two views cannot drift apart. No sign-in, no account, nothing to tap.
+  - **Read-only in both senses.** The shared page carries no Edit, Sync, Archive, Remove or Share
+    controls, and no API route reachable from it can write anything.
+  - **Nobody is "you".** The owner's view says *you lent / you borrowed / (you) / You pay*; the
+    shared view has no viewer to address, so every person is named in full. The same component
+    decides this from one prop (`viewerId`), which is `null` on the public page.
+  - **The token is the permission.** 192 bits of randomness, base64url, held only on the split it
+    belongs to. Creating a link twice returns the same one, so re-sharing never breaks a link a
+    friend already has.
+  - **Turning it off is immediate and total.** Revoking discards the token; the old link, and the
+    photo route behind it, return 404 for everyone from that moment.
+  - **Removing a split takes its link with it.** The token lives inside the split's JSON `data`,
+    which `redactedForRemoval` clears (DB-12) — so a receipt removed for good cannot stay readable
+    through a link somebody kept. Tested directly (`tests/share.test.ts`).
+  - **Never indexed.** The page sets `robots: noindex, nofollow, nocache` and the photo route
+    sends `X-Robots-Tag: noindex, nofollow` with a short private cache, so a revoked link stops
+    working quickly everywhere.
+  - **The photo stays private.** The storage bucket is still private; bytes reach a browser only
+    through `/api/s/[token]/image`, which resolves the token itself and refuses anything that is
+    not a well-formed token before it ever queries the database.
+- **FB-10** **Feedback alerts are visible, testable, and honest about being off.** The contact
+  form already wrote every message to the database *and* emailed the admin — but only when
+  `RESEND_API_KEY` is set, and it never was on the deployed site, so nothing arrived and nothing
+  said why. Three changes: the admin **Feedback inbox** panel now states in one line whether email
+  alerts are on (and to which masked address) or off (and which variable turns them on); a **Send
+  a test alert** button (`POST /api/admin/test-email`, admin-only, rate limited) proves the
+  delivery path without waiting for real feedback, and reports the provider's own refusal reason
+  rather than a generic failure; and `NEEDED-FROM-ME.md` gains step ⑥b, the Resend account setup.
+  The database stays the source of truth either way — a delivery problem must never tell someone
+  their feedback failed after it was safely recorded.

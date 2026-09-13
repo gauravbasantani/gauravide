@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import styles from './split.module.css'
+import styles from '@/components/split/split.module.css'
 
 type Difference = { label: string; ours: string; theirs: string }
 type Status = 'idle' | 'same' | 'different' | 'deleted' | 'pulled' | 'pushed'
