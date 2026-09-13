@@ -943,13 +943,17 @@ size and weight — strip every colour out and it must still read correctly.
 ### After sending — Your splits
 - The receipt photo is uploaded to private storage and kept with the split (📷 on the row).
 - The split page shows the photo beside who paid and who owes, then every item with who shared
-  it and how, then Edit / Open in Splitwise / share / archive / remove / delete.
+  it and how, then the Splitwise copy panel and archive / remove / delete. Share, Edit and Open in
+  Splitwise live in the sticky action bar at the top.
 - **Edit split** reopens the whole flow and updates the same Splitwise expense — never a duplicate.
-- **Share this receipt** creates a read-only link, `/s/<token>`, with Copy link and Turn off link.
-  Anyone who opens it sees the same page — photo, who paid, who owes what, settle-up, every item
-  and the faces on it — with no sign-in and nothing to tap. Nobody is addressed as "you" there, so
-  every person is named. Turning the link off kills it for everyone immediately, and removing the
-  split for good takes the link with it. The page is never indexed.
+- **Share** is the lead button in the action bar at the top, beside Edit split — the only filled
+  one of the three — and the bar stays with you as you scroll (one row even on a phone). A dot on
+  the button says a link is currently live. Pressing it opens a sheet: Create share link, then
+  Copy, Send link (the OS share sheet on a phone), or Turn off link.
+- The link is `/s/<token>`. Anyone who opens it sees the same page — photo, who paid, who owes
+  what, settle-up, every item and the faces on it — with no sign-in and nothing to tap. Nobody is
+  addressed as "you" there, so every person is named. Turning the link off kills it for everyone
+  immediately, and removing the split for good takes the link with it. The page is never indexed.
 
 ### Admin (superuser only)
 - `/admin` redirects to `/admin/login`: username and password only (the Splitwise route was

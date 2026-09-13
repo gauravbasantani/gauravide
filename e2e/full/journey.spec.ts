@@ -119,6 +119,7 @@ test.beforeEach(async ({ context }) => {
 test('scan → split → send → dashboard → split page → edit → archive → delete', async ({
   page,
   browser,
+  isMobile,
 }) => {
   const problems = watchForBreakage(page)
   page.on('dialog', (dialog) => void dialog.accept())
@@ -263,10 +264,20 @@ test('scan → split → send → dashboard → split page → edit → archive 
   await expect(page.getByAltText('Receipt from Costco Tempe')).toBeVisible()
 
   /* ── Share link: the same receipt, read-only, without an account ──── */
+  // Sharing lives in the action bar at the top, not four screens down.
+  await page.getByRole('button', { name: /^share$/i }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('button', { name: /create share link/i }).click()
   const link = page.getByLabel('Share link')
   await expect(link).toHaveValue(/\/s\/[A-Za-z0-9_-]{16,}$/)
   const shareUrl = await link.inputValue()
+  if (!isMobile) {
+    // Only where the browser grants clipboard access. Elsewhere the button
+    // takes its documented fallback, which is not what this line is testing.
+    await page.getByRole('button', { name: /^copy$/i }).click()
+    await expect(page.getByRole('button', { name: /copied/i })).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(shareUrl)
+  }
 
   // A stranger's browser: no session cookie, nothing signed in.
   const stranger = await browser.newContext()
@@ -283,13 +294,18 @@ test('scan → split → send → dashboard → split page → edit → archive 
   // And none of what only the owner may do — or be told.
   await expect(visitor.getByRole('button', { name: /edit split/i })).toHaveCount(0)
   await expect(visitor.getByRole('button', { name: /archive receipt/i })).toHaveCount(0)
-  await expect(visitor.getByRole('button', { name: /create share link/i })).toHaveCount(0)
+  await expect(visitor.getByRole('button', { name: /^share$/i })).toHaveCount(0)
   await expect(visitor.getByText(/you lent|you borrowed|\(you\)/i)).toHaveCount(0)
   expect(visitorProblems).toEqual([])
 
+  // The button itself says a link is live, without opening anything.
+  await expect(page.getByRole('button', { name: /a link is currently on/i })).toBeVisible()
+
   // Revoking is immediate: the link a friend kept stops resolving.
   await page.getByRole('button', { name: /turn off link/i }).click()
-  await expect(page.getByRole('button', { name: /create share link/i })).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('button', { name: /create share link/i })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
   const revoked = await visitor.goto(shareUrl)
   expect(revoked?.status()).toBe(404)
   await stranger.close()

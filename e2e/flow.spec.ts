@@ -147,6 +147,13 @@ test.describe('the whole split, end to end', () => {
     await page.getByRole('button', { name: 'Type it in' }).click()
     await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
 
+    // The draft is written in an effect, so the heading being painted does not
+    // yet mean it has been saved. A real person cannot reload inside that gap;
+    // a test can, and did — intermittently, under load.
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem('gauravide:draft:v2') !== null))
+      .toBe(true)
+
     await page.reload()
     await expect(page.getByText(/split in progress from earlier/i)).toBeVisible()
     await page.getByRole('button', { name: /pick up where i left off/i }).click()

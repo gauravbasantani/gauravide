@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import styles from './Sheet.module.css'
 
@@ -30,6 +31,24 @@ export function Sheet({
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<HTMLElement | null>(null)
   const id = useId()
+
+  /*
+   * The sheet is rendered into <body>, not where it is written.
+   *
+   * A dialog must cover the page, and `position: fixed` plus a z-index only
+   * mean that relative to the viewport and the root stacking context. Any
+   * ancestor with a transform, a filter, a backdrop-filter or its own z-index
+   * quietly becomes the containing block and the stacking context instead, and
+   * the sheet ends up trapped inside it — laid out in a toolbar's box, or
+   * painted under the site nav. That shipped once, when the split page's
+   * action bar became sticky with a blurred background and the share sheet's
+   * buttons could no longer be clicked on a phone.
+   *
+   * Portalling makes it impossible for any caller to reintroduce, rather than
+   * asking every future caller to know this.
+   */
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   // Callers pass inline arrows for onClose, so its identity changes on every
   // parent render. Holding it in a ref keeps it out of the effect's
@@ -83,9 +102,9 @@ export function Sheet({
     // Deliberately NOT depending on onClose — see onCloseRef above.
   }, [open, dismissible])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
+  return createPortal(
     <div className={styles.backdrop}>
       {/* A real <button> rather than a click handler on the backdrop div:
           keyboard and screen-reader users get the same dismiss affordance
@@ -114,6 +133,7 @@ export function Sheet({
         <div className={styles.body}>{children}</div>
         {actions ? <div className={styles.actions}>{actions}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

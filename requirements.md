@@ -1625,3 +1625,45 @@ form' — I tried it and I didn't get a notification."*
   rather than a generic failure; and `NEEDED-FROM-ME.md` gains step ⑥b, the Resend account setup.
   The database stays the source of truth either way — a delivery problem must never tell someone
   their feedback failed after it was safely recorded.
+
+### Sharing leads the split page (added 2026-09-13, tenth pass)
+
+*Gaurav: "these all things are down, make it more prominent on top … too heavy
+to scroll, do good UX of this split page. The link works good and cool."*
+
+- **FR-54** **The share action sits in the split page's action bar, not at the bottom of it.**
+  FR-53 shipped the share panel below the items, under the Splitwise panel and the manage panel —
+  four screens from the top on a phone, below two panels about deleting things. Sharing is the
+  most common thing anyone does on this page, and it was the hardest thing to find on it.
+  - **Share is now the lead action**, beside *Edit split* and *Open in Splitwise*, and it is the
+    only filled button of the three: the other two step back to outlines. The link itself opens
+    in a sheet, so the page keeps the same shape whether or not a link exists — no panel that
+    appears and disappears, and no scrolling to find out.
+  - **The button says whether a link is live**, with a dot and the screen-reader text "a link is
+    currently on". Whether this receipt is currently readable by other people is a standing fact
+    about it, not something you should have to open a dialog to learn.
+  - **Send link uses the OS share sheet** (`navigator.share`) where there is one — on a phone,
+    that is the difference between "copy this, now go find Messages" and one tap. Where there
+    isn't one, it copies, and cancelling the OS sheet is not treated as an error.
+  - **The action bar follows you down the page**, sticky under the site nav (which is itself
+    sticky at 60px, z-index 30; the bar sits at z-index 20). It is opaque rather than blurred: a
+    nav may show a hint of the page moving under it, but a toolbar in the middle of a page of
+    numbers just gets page text ghosting through its own labels.
+    This page is long by nature — a photo, two people panels, and every line of the receipt — and
+    Back, Share and Edit were previously reachable only by scrolling to the top.
+  - **On a phone it stays one row.** A sticky bar that wraps to two rows costs two rows of the
+    receipt, permanently. Below 40rem the back link keeps its arrow and drops its words (with an
+    `aria-label` carrying the full name), "Open in Splitwise" becomes "Splitwise", and the buttons
+    tighten — while every target keeps its 44px height.
+- **GAP-6** **A dialog is rendered into `<body>`, never where it is written.** Making the action
+  bar sticky gave it a `z-index` and a `backdrop-filter`, and either alone is enough to turn an
+  element into both a stacking context and the containing block for `position: fixed` descendants.
+  The share sheet, written inside that bar, was then laid out relative to the bar and painted under
+  the site nav: on a phone its buttons could not be clicked at all. `Sheet` now portals to
+  `document.body`, so no caller can reintroduce this by styling an ancestor. Caught by the mobile
+  journey test, which reported the nav intercepting pointer events.
+- **TEST-6** **Clipboard access is a browser permission, not a given.** The desktop project now
+  grants `clipboard-read`/`clipboard-write` and asserts that *Copy* really put the link on the
+  clipboard; WebKit has no such permission, so on the mobile project the copy assertion is skipped
+  rather than asserting the fallback. Without this the test was silently exercising the failure
+  path and calling it a pass.

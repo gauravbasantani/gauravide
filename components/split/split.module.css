@@ -3,16 +3,40 @@
   padding-block: var(--space-6) var(--space-12);
 }
 
+/*
+ * The action bar follows you down the page. This page is long by nature — a
+ * photo, two people panels and every line of the receipt — and the actions
+ * used to be reachable only by scrolling back to the top, or (for sharing)
+ * all the way to the bottom.
+ *
+ * It sticks under the site nav, which is itself sticky at 60px and sits on
+ * z-index 30; this stays below it.
+ */
 .topBar {
+  position: sticky;
+  top: 60px;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  /* Bleed to the gutter edges so the blurred band spans the full width. */
+  margin-inline: calc(-1 * var(--gutter));
+  padding: var(--space-2) var(--gutter);
+  border-bottom: 1px solid var(--border);
+  /*
+   * Opaque, not the translucent blur the site nav uses. A nav shows a hint of
+   * the page moving under it; a toolbar sitting in the middle of a page of
+   * numbers just gets page text ghosting through its own labels, which on a
+   * phone was genuinely hard to read.
+   */
+  background: var(--bg);
 }
 
 .back {
   display: inline-flex;
+  gap: var(--space-1);
   min-height: 44px;
   align-items: center;
   color: var(--text-muted);
@@ -30,6 +54,7 @@
   gap: var(--space-2);
 }
 
+.share,
 .edit,
 .open {
   display: inline-flex;
@@ -45,25 +70,66 @@
   cursor: pointer;
 }
 
-.edit {
+.share {
+  gap: var(--space-2);
   border: 1px solid transparent;
   background: var(--primary);
   color: var(--primary-on);
 }
 
-.edit:hover {
+.share:hover {
   background: var(--primary-hover);
 }
 
+/* A live link is a standing fact about this receipt, so the button carries it
+   rather than hiding it in a sheet nobody has opened. */
+.shareDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-on);
+}
+
+.edit,
 .open {
   border: 1px solid var(--border-interactive);
   background: var(--surface);
   color: var(--text);
 }
 
+.edit:hover,
 .open:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+
+/*
+ * On a phone the bar is sticky, so every row it takes is a row of the receipt
+ * you cannot see. Below 40rem it stays one row: the back link keeps its arrow
+ * and drops its words, "Open in Splitwise" becomes "Splitwise", and the
+ * buttons tighten — while every target stays 44px tall.
+ */
+@media (max-width: 40rem) {
+  .backText,
+  .openText {
+    display: none;
+  }
+
+  .share,
+  .edit,
+  .open {
+    padding: 0 var(--space-3);
+    font-size: var(--text-caption);
+  }
+
+  .topBar {
+    flex-wrap: nowrap;
+  }
+
+  .topActions {
+    flex-wrap: nowrap;
+  }
 }
 
 /* ── Summary ───────────────────────────────────────────────── */
@@ -629,28 +695,7 @@
   text-align: center;
 }
 
-/* ── Share panel (owner) ───────────────────────────────────── */
-.share {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-5);
-  margin-top: var(--space-6);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
-.share h2 {
-  margin: 0;
-  font-size: var(--text-meta);
-}
-
-.share p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-caption);
-}
-
+/* ── Share sheet ───────────────────────────────────────────── */
 .shareRow {
   display: flex;
   flex-wrap: wrap;
@@ -669,6 +714,13 @@
   color: var(--text);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-caption);
+}
+
+.shareNote {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: 1.5;
 }
 
 .shareError {

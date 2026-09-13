@@ -48,7 +48,11 @@ export default defineConfig({
       name: 'desktop',
       use: {
         ...devices['Desktop Chrome'],
-        permissions: ['camera'],
+        // Clipboard access is a real permission: without it "Copy link" takes
+        // its graceful fallback instead of the path we mean to test. WebKit
+        // (the mobile project) has no such permission, so the copy assertion
+        // is desktop-only.
+        permissions: ['camera', 'clipboard-read', 'clipboard-write'],
         // A fake webcam, so the in-app camera can be driven for real.
         launchOptions: {
           args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
