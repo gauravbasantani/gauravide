@@ -57,6 +57,33 @@
   width: 100%;
 }
 
+.manualForm {
+  width: 100%;
+}
+
+.manualButton {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.manualButton:hover {
+  background: var(--bg-subtle);
+}
+
+.manualButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .hint {
   font-size: var(--text-caption);
   color: var(--text-muted);

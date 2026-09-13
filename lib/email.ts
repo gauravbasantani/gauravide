@@ -1,9 +1,7 @@
 /**
- * The one email this app sends: an admin password reset link (SEC-26c).
- *
- * Resend's HTTP API, so there is no SMTP library and no mail server. Without
- * RESEND_API_KEY the feature reports itself as unavailable and the UI points
- * at the command-line reset instead — it never silently does nothing.
+ * Admin-only email delivery through Resend's HTTP API. Without RESEND_API_KEY
+ * email-dependent features report their status clearly; data is never held in
+ * memory waiting for an email service to come back.
  */
 const API = process.env.RESEND_API_URL?.trim() || 'https://api.resend.com/emails'
 
@@ -41,5 +39,18 @@ export async function sendAdminEmail(subject: string, text: string): Promise<voi
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     throw new EmailError(`resend ${res.status} ${detail.slice(0, 200)}`)
+  }
+}
+
+export function feedbackNotification(input: {
+  category: 'bug' | 'suggestion' | 'question' | 'other'
+  message: string
+  contact?: string | null
+  reference: string
+}): { subject: string; text: string } {
+  const contact = input.contact ? `\nReply address: ${input.contact}\n` : '\nNo reply address was provided.\n'
+  return {
+    subject: `New Gauravide feedback — ${input.category}`,
+    text: `A user sent feedback.\n\nCategory: ${input.category}\nReference: ${input.reference}${contact}\nMessage:\n${input.message}\n\nView all feedback: /admin`,
   }
 }

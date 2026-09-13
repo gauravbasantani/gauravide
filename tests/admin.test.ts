@@ -8,7 +8,7 @@ import {
 } from '@/lib/adminCrypto'
 import { computeMetrics, minutesSaved, type EventRow, type SplitRow } from '@/lib/metrics'
 import { hashToken, makeResetToken } from '@/lib/adminStore'
-import { maskEmail } from '@/lib/email'
+import { feedbackNotification, maskEmail } from '@/lib/email'
 import { NOT_REMOVED, redactedForRemoval } from '@/lib/history'
 import { hashPassword as scriptHash } from '../scripts/admin-password.mjs'
 
@@ -208,6 +208,20 @@ describe('reset links and email addresses', () => {
   it('masks the address it emails', () => {
     expect(maskEmail('gaurav.inbox29@gmail.com')).toBe('g*************@gmail.com')
     expect(maskEmail('a@b.com')).toBe('a*@b.com')
+  })
+
+  it('makes feedback notifications useful without putting user content in the subject', () => {
+    const notification = feedbackNotification({
+      category: 'bug',
+      message: 'The total was wrong after I edited the tip.',
+      contact: 'maya@example.com',
+      reference: 'ab12cd34',
+    })
+    expect(notification.subject).toBe('New Gauravide feedback — bug')
+    expect(notification.subject).not.toContain('total was wrong')
+    expect(notification.text).toContain('ab12cd34')
+    expect(notification.text).toContain('maya@example.com')
+    expect(notification.text).toContain('The total was wrong after I edited the tip.')
   })
 })
 

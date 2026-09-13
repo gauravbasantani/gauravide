@@ -257,9 +257,14 @@ export function UploadStep({ onExtracted, onManual }: Props) {
               onChange={(e) => handleInputChange(e.currentTarget)}
             />
           </label>
-          <Button variant="secondary" full onClick={onManual}>
-            Type it in
-          </Button>
+          {/* A native GET submission is intentional: tapping this before the
+              JavaScript bundle has hydrated still opens the manual editor. */}
+          <form action="/new" className={styles.manualForm}>
+            <input type="hidden" name="manual" value="1" />
+            <button type="submit" className={styles.manualButton}>
+              Type it in
+            </button>
+          </form>
         </div>
 
         <p className={styles.hint}>

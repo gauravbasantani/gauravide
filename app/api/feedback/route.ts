@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getSession, ownerId } from '@/lib/session'
 import { insert, dbConfigured } from '@/lib/db'
 import { rateLimit } from '@/lib/ratelimit'
+import { emailConfigured, feedbackNotification, sendAdminEmail } from '@/lib/email'
 
 export const runtime = 'nodejs'
 
@@ -57,7 +58,20 @@ export async function POST(req: Request) {
       diagnostics: parsed.data.diagnostics ?? null,
     })
     // A reference the user can quote back to us, without exposing a row id.
-    return NextResponse.json({ ok: true, reference: crypto.randomUUID().slice(0, 8) })
+    const reference = crypto.randomUUID().slice(0, 8)
+
+    // The database is the source of truth. A delivery problem must never tell
+    // someone their feedback failed after we have safely recorded it.
+    if (emailConfigured()) {
+      const notification = feedbackNotification({ ...parsed.data, reference })
+      try {
+        await sendAdminEmail(notification.subject, notification.text)
+      } catch (error) {
+        console.error(`[feedback] notification email failed: ${error instanceof Error ? error.name : 'unknown'}`)
+      }
+    }
+
+    return NextResponse.json({ ok: true, reference })
   } catch {
     console.error('[feedback] insert failed')
     return NextResponse.json(

@@ -1548,3 +1548,26 @@ understand what the app is about."*
   "No spreadsheet. No calculator. Add a photo or PDF of any receipt from Walmart, Safeway, a
   restaurant, anywhere, or type it in yourself. Tap who had what." Steps, cases and trust lines
   were rewritten the same way, and the dashboard empty state with them.
+
+### Archive means archive (added 2026-09-12, eighth pass)
+
+*Gaurav: "if user removes receipts/splits from Your splits dashboard, no archive; if he removes
+from Splitwise, then also archive here."*
+
+- **FR-49** **Deleted in Splitwise is archived here, automatically.** When "Check Splitwise" finds
+  the expense gone (deleted response or 404), the saved split is archived in the same write that
+  sets `deletedInSplitwise`. It leaves the active list and the balance totals, keeps its readable
+  copy, and shows "deleted in Splitwise" instead of "archived" in the archive list. Restoring puts
+  it back. An already-archived split keeps its original archive date.
+- **FR-50** **Removed is removed, never archived.** "Remove for good" clears `archived_at` as it
+  redacts (DB-12), so a removed split cannot surface in the archive disclosure. The two actions are
+  now named for what they do: *Archive receipt* keeps it, *Remove for good* destroys it, *Delete
+  from Splitwise too* also removes the shared expense.
+- **FR-51** **Thirty seconds to change your mind.** Neither removal happens on the click. Pressing
+  *Remove for good* or *Delete from Splitwise too* puts the split into a pending panel that says
+  what is about to happen and that **nothing has happened yet**, with **Undo (30s)** and *Do it
+  now*. Undo cancels it outright — no request was ever sent, so there is nothing to reverse, which
+  is why the wait comes before the deletion rather than after it (userflow.md, "30s Undo toast").
+  Leaving the page or closing the tab flushes the removal with a `keepalive` request; if that
+  fails, nothing is destroyed and the split simply stays. Deleting from Splitwise is still
+  confirmed first, because it changes a shared expense for everyone.

@@ -68,7 +68,7 @@ function SplitRow({ split, archived }: { split: StoredSplit; archived?: boolean 
       <span className={styles.amount}>
         {archived ? (
           <>
-            <span>archived</span>
+            <span>{data.deletedInSplitwise ? 'deleted in Splitwise' : 'archived'}</span>
             <strong className={styles.neutral}>{money(data.totalCents)}</strong>
           </>
         ) : !balance ? (
@@ -173,7 +173,10 @@ export function Dashboard({ splits, unavailable }: Props) {
           <summary>
             Archived receipts <span>({archivedSplits.length})</span>
           </summary>
-          <p>Only you can see these. Open one to restore or remove it.</p>
+          <p>
+            Only you can see these. Open one to restore or remove it. Receipts deleted in Splitwise
+            land here too, so the copy stays readable without pretending the expense is still live.
+          </p>
           <div className={styles.list}>
             {archivedSplits.map((split) => (
               <SplitRow key={split.id} split={split} archived />

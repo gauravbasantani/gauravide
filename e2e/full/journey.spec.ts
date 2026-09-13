@@ -271,7 +271,22 @@ test('scan → split → send → dashboard → split page → edit → archive 
   /* ── Delete from Splitwise too ────────────────────────────────────── */
   await page.getByRole('link', { name: /costco tempe/i }).click()
   await page.getByRole('button', { name: /delete from splitwise too/i }).click()
+
+  // Nothing happens for 30 seconds: Undo first, and the split is still there.
+  await expect(page.getByRole('button', { name: /^undo \(\d+s\)$/i })).toBeVisible()
+  await page.getByRole('button', { name: /^undo \(\d+s\)$/i }).click()
+  await expect(page.getByRole('button', { name: /delete from splitwise too/i })).toBeVisible()
+  const waiting = await backend()
+  expect(waiting.expenses[0]!.deleted).toBeFalsy()
+  expect((waiting.splits[0]!.data as Record<string, unknown>).removedAt).toBeUndefined()
+
+  // Ask again, and this time let it through without waiting out the clock.
+  await page.getByRole('button', { name: /delete from splitwise too/i }).click()
+  await expect(page.getByText(/nothing has happened yet/i)).toBeVisible()
+  await page.getByRole('button', { name: /do it now/i }).click()
   await expect(page.getByText('No splits yet')).toBeVisible()
+  // Removed means gone, not archived: nothing is left for the user to open.
+  await expect(page.getByText(/archived receipts/i)).toHaveCount(0)
   state = await backend()
   expect(state.expenses[0]!.deleted).toBe(true)
   expect(state.objects).toHaveLength(0) // the photo went with it
@@ -339,6 +354,23 @@ test('Splitwise refusing an expense shows its reason and keeps the split', async
   ).toBeVisible()
   await expect(page.getByText('Your split is still here')).toBeVisible()
   expect((await backend()).expenses).toHaveLength(0)
+})
+
+test('feedback is saved and emails the configured admin', async ({ page }) => {
+  await page.goto('/contact')
+  await page.getByRole('radio', { name: 'An idea' }).check()
+  await page.getByLabel('Your message').fill('Please add a dark receipt preview.')
+  await page.getByLabel('How to reach you (optional)').fill('maya@example.com')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByRole('status')).toContainText(/reference/i)
+  const state = await backend()
+  const email = state.emails.find((item) => item.subject === 'New Gauravide feedback — suggestion')
+  expect(email).toMatchObject({
+    to: ['admin@example.com'],
+    text: expect.stringContaining('Please add a dark receipt preview.'),
+  })
+  expect(email?.text).toContain('maya@example.com')
 })
 
 test('admin sees aggregate numbers, and the pages survive a real dashboard row', async ({ page }) => {
@@ -615,5 +647,19 @@ test('a change made in Splitwise can be found, pulled, or overwritten', async ({
 
   const after = await backend()
   expect(after.expenses).toHaveLength(1)
+  expect(after.splits[0]!.archived_at).toEqual(expect.any(String)) // FR-49
+
+  // Deleted over there means archived here: out of the active list, still readable.
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: /groceries/i })).toHaveCount(0)
+  await page.getByText(/archived receipts/i).click()
+  await expect(page.getByText('deleted in Splitwise', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: /groceries/i }).click()
+  await expect(page.getByText(/moved to your archive/i)).toBeVisible()
+
+  // Restoring puts it back where it was.
+  await page.getByRole('button', { name: /restore to active/i }).click()
+  await expect(page.getByRole('link', { name: /groceries/i })).toBeVisible()
+
   expect(problems).toEqual([])
 })

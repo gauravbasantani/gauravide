@@ -25,6 +25,20 @@ const Body = z.object({ action: z.enum(['check', 'pull', 'push']) })
 
 const json = (status: number, message: string) => NextResponse.json({ message }, { status })
 
+/**
+ * Gone from Splitwise means gone from the active list (FR-49).
+ *
+ * The saved copy is kept — it is the only record of what the receipt said —
+ * but it moves to the archive, because an expense nobody can settle any more
+ * does not belong among the live ones. Restoring it is a button away.
+ */
+async function markDeleted(owner: string, split: StoredSplit) {
+  await updateOwned('splits', owner, split.id, {
+    data: { ...split.data, deletedInSplitwise: true, syncedAt: new Date().toISOString() },
+    archived_at: split.archived_at ?? new Date().toISOString(),
+  })
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!dbConfigured) return json(503, 'Your dashboard is unavailable.')
 
@@ -59,9 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const remote = readRemote(await getExpense(token, expenseId))
 
     if (remote.deleted) {
-      await updateOwned('splits', owner, split.id, {
-        data: { ...split.data, deletedInSplitwise: true, syncedAt: new Date().toISOString() },
-      })
+      await markDeleted(owner, split)
       return NextResponse.json({ status: 'deleted' })
     }
 
@@ -124,9 +136,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return json(422, `Splitwise didn’t accept it: ${error.refusal}`)
     }
     if (error instanceof SplitwiseError && error.status === 404) {
-      await updateOwned('splits', owner, split.id, {
-        data: { ...split.data, deletedInSplitwise: true, syncedAt: new Date().toISOString() },
-      }).catch(() => undefined)
+      await markDeleted(owner, split).catch(() => undefined)
       return NextResponse.json({ status: 'deleted' })
     }
     console.error('[sync] failed')

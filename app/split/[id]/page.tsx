@@ -100,7 +100,8 @@ export default async function SplitDetailPage({ params }: { params: Promise<{ id
       {/* ── Summary ─────────────────────────────────────────────── */}
       {data.deletedInSplitwise ? (
         <p className={styles.flag} role="status">
-          This expense was deleted in Splitwise. What you see here is your own saved copy.
+          This expense was deleted in Splitwise, so it moved to your archive. What you see here is
+          your own saved copy. Restore it to put it back on your dashboard, or remove it for good.
         </p>
       ) : null}
       {data.itemsStale ? (

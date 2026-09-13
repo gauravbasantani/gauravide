@@ -412,6 +412,13 @@
   color: var(--danger-text) !important;
 }
 
+/* A removal waiting out its undo window: loud enough to notice, calm enough
+   not to panic — nothing has been destroyed yet. */
+.pending {
+  border-color: var(--warning-text);
+  background: var(--warning-subtle);
+}
+
 @media (max-width: 560px) {
   .topActions {
     width: 100%;

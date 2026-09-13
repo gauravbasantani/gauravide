@@ -456,6 +456,26 @@ original one resurrected.
 Two-expense submissions (the guest case) delete, undo, and restore **as one unit**. Half a
 receipt must never be left sitting in Splitwise.
 
+### The 30-second undo (FR-51)
+
+Both removals are staged, never instant. The manage panel is replaced in place by:
+
+```
+┌────────────────────────────────────────────────┐
+│ Removing this receipt                          │
+│ The items and photo will be deleted for good.  │
+│ Splitwise keeps the expense.                   │
+│ Nothing has happened yet.                      │
+│   [ Undo (27s) ]        [ Do it now ]          │
+└────────────────────────────────────────────────┘
+```
+
+Undo sends no request at all, because none was sent in the first place — the wait comes *before*
+the deletion, so there is never anything to reverse. *Do it now* skips the wait for people who are
+sure. Leaving the page flushes the removal (`keepalive`), and if that flush fails the split simply
+stays: the failure direction is always "nothing was destroyed". Deleting from Splitwise is still
+confirmed first, because that one changes a shared expense for everybody in it.
+
 ### What "remove" actually removes (DB-12)
 
 Removing the dashboard copy destroys the receipt and keeps the count. Items, merchant, date,
@@ -470,8 +490,10 @@ Row      ▸ { removedAt, hadPhoto, currency, totalCents, itemCount, peopleCount
 Admin    ▸ "Includes 3 receipts whose owners later removed them … still counted here."
 ```
 
-Deleting the expense inside Splitwise itself changes nothing here beyond a flag: **Check
-Splitwise** notices it is gone and says so. The usage count stands either way — it records that
+Deleting the expense inside Splitwise itself never destroys the copy here: **Check Splitwise**
+notices it is gone, says so, and **archives the split automatically** (FR-49), so it leaves the
+active list and the balances but stays readable. It shows as *deleted in Splitwise* in the archive,
+and Restore puts it back. The usage count stands either way — it records that
 the app split a receipt, which remains true after anyone deletes their copy.
 
 ---

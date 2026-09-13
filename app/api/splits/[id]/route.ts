@@ -63,8 +63,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
           return json(
             502,
             error instanceof SplitwiseError && error.refusal
-              ? `Splitwise didn’t delete it: ${error.refusal} If it was already deleted in Splitwise, use “Remove dashboard copy” instead.`
-              : 'Couldn’t delete this expense in Splitwise. If someone already deleted it there, use “Remove dashboard copy” instead.',
+              ? `Splitwise didn’t delete it: ${error.refusal} If it was already deleted in Splitwise, use “Remove for good” instead.`
+              : 'Couldn’t delete this expense in Splitwise. If someone already deleted it there, use “Remove for good” instead.',
           )
         }
       }

@@ -68,6 +68,7 @@ export default function NewSplitPage() {
   const [restored, setRestored] = useState<Draft | null>(null)
   const [receiptImage, setReceiptImage] = useState<Blob | null>(null)
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>(null)
+  const handledManualStart = useRef(false)
 
   const apply = useCallback((draft: Draft) => {
     setStep(draft.step)
@@ -153,6 +154,16 @@ export default function NewSplitPage() {
     if (photo) void saveDraftImage(photo)
     setStep('review')
   }
+
+  // The initial "Type it in" control is a normal GET form, so a tap made
+  // before React hydrates is never lost. Once this client is ready, turn that
+  // navigation into the same editable first-item draft as the in-flow action.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('manual') !== '1' || handledManualStart.current) return
+    handledManualStart.current = true
+    startDraft({ ...EMPTY, items: [{ name: '', qty: 1, cents: 0, confidence: 1 }] }, [])
+    router.replace('/new', { scroll: false })
+  }, [router])
 
   /**
    * Removing someone must also remove them everywhere they were referenced —
