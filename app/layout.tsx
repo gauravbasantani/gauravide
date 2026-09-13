@@ -5,7 +5,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Gauravide',
-  description: 'Split a receipt in 30 seconds — scan it, tap who shares what, done.',
+  description: 'Split a receipt in 30 seconds. Scan it, tap who shares what, done.',
   applicationName: 'Gauravide',
   icons: {
     icon: '/gauravide-mark.png',
