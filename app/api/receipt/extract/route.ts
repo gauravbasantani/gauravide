@@ -43,6 +43,26 @@ function sniff(bytes: Uint8Array): string | null {
   return SIGNATURES.find((s) => s.test(bytes))?.mime ?? null
 }
 
+/**
+ * Record one event, and WAIT for it.
+ *
+ * This used to be fire-and-forget. On a serverless host the instance is
+ * frozen the moment the response is returned, so the insert was killed in
+ * flight and scans almost never reached the table — the admin dashboard
+ * showed splits sent (that route awaits its write) beside no scans at all.
+ *
+ * Analytics must never cost a user their receipt, so a failure here is
+ * swallowed: awaited, but not fatal.
+ */
+async function record(name: string, props: Record<string, unknown>, owner: string) {
+  if (!dbConfigured) return
+  try {
+    await insert('events', { user_key: owner, name, props })
+  } catch {
+    console.error(`[extract] event save failed: ${name}`)
+  }
+}
+
 export async function POST(req: Request) {
   // 1. Authenticate — an anonymous session is still a session.
   const session = await getSession()
@@ -116,13 +136,11 @@ export async function POST(req: Request) {
   try {
     const result = await extractReceipt(Buffer.from(clean).toString('base64'), mimeType)
     await writeSession(session)
-    if (dbConfigured) {
-      insert('events', {
-        user_key: ownerId(session),
-        name: 'receipt_extracted',
-        props: { source: result.source, kind: mimeType === 'application/pdf' ? 'pdf' : 'image' },
-      }).catch(() => console.error('[extract] event save failed'))
-    }
+    await record(
+      'receipt_extracted',
+      { source: result.source, kind: mimeType === 'application/pdf' ? 'pdf' : 'image' },
+      ownerId(session),
+    )
 
     // 5. Respond. rawText is dropped: it is receipt content, and the client
     //    already has the parsed items (SEC-7).
@@ -133,13 +151,11 @@ export async function POST(req: Request) {
     })
   } catch (err) {
     // Reader health for the admin dashboard — the error type only, never content.
-    if (dbConfigured) {
-      insert('events', {
-        user_key: ownerId(session),
-        name: 'receipt_failed',
-        props: { reason: err instanceof ExtractionUnavailable ? 'unavailable' : 'error' },
-      }).catch(() => undefined)
-    }
+    await record(
+      'receipt_failed',
+      { reason: err instanceof ExtractionUnavailable ? 'unavailable' : 'error' },
+      ownerId(session),
+    )
     if (err instanceof ExtractionUnavailable) {
       // Both providers gone. Manual entry always works — never a dead end.
       return NextResponse.json(
