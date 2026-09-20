@@ -421,9 +421,7 @@ export default async function AdminPage({
                   {m.reach.map((r) => (
                     <tr key={r.currency}>
                       <td>{r.where}</td>
-                      <td>
-                        <code>{r.currency}</code>
-                      </td>
+                      <td>{r.currency === 'unknown' ? '—' : <code>{r.currency}</code>}</td>
                       <td className={styles.numCol} data-num>
                         {count(r.scans)}
                       </td>
@@ -441,7 +439,8 @@ export default async function AdminPage({
           )}
           {/* Said plainly, because a zero here means "not recorded", not "nobody". */}
           <p className={styles.note}>
-            A scan counts towards a currency only if it was read after this was added.
+            Scans carry a currency only from the day that was recorded; earlier ones are grouped at
+            the bottom. Money is counted from splits sent, so a row can show scans and no money.
           </p>
         </section>
 

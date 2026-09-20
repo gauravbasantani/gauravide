@@ -43,7 +43,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
           Signed out, nothing is stored anywhere.
         </p>
         <p>
-          The one way anyone else sees it is a <strong>share link you create yourself</strong> —
+          The one way anyone else sees it is a <strong>share link you create yourself</strong>,
           see below. There is no such link until you make one.
         </p>
       </>
@@ -55,7 +55,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
       <p>
         Yes. &ldquo;Take a photo&rdquo; opens your camera in the app, you press the shutter, and
         the shot goes straight into the split. On a phone it opens the normal camera instead, which
-        takes a sharper picture. If a device has no camera, the button is not shown — it would open
+        takes a sharper picture. If a device has no camera, the button is not shown, because it would open
         a file picker, which is not what &ldquo;take a photo&rdquo; means.
       </p>
     ),
@@ -67,7 +67,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
         Yes. Open it under Your splits and choose <strong>Edit split</strong>: items, people, who
         paid and the group are all editable, and saving updates the same Splitwise expense for
         everyone rather than creating a second one. You can also archive it, remove just your copy,
-        or delete it from Splitwise for everyone — that last one always asks first.
+        or delete it from Splitwise for everyone. That last one always asks first.
       </p>
     ),
   },
@@ -81,7 +81,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
           dashboard and the link stops working, for you as much as anyone.
         </p>
         <p>
-          What stays is one anonymous line in the usage totals — the amount, the currency, and how
+          What stays is one anonymous line in the usage totals: the amount, the currency, and how
           many items and people were involved. Nothing in it can rebuild the receipt. That line is
           the record of a receipt this app actually split, and one person tidying their own
           dashboard shouldn&rsquo;t rewrite how much work the app has done. The same is true if the
@@ -103,14 +103,14 @@ const QA: { q: string; a: React.ReactNode }[] = [
     ),
   },
   {
-    q: 'How is tax split — why didn’t everyone pay the same tax?',
+    q: 'How is tax split, and why didn’t everyone pay the same tax?',
     a: (
       <p>
         Most receipts print a code beside each line marking its tax rate. Gauravide reads those and
         charges tax to whoever took the taxed items. If you bought only tax-exempt groceries you pay
         none of the 8% charged on someone else&rsquo;s household goods. If the receipt has no codes,
         tax is split in proportion to each person&rsquo;s items, and the app says so. Whatever your
-        country calls it — VAT, GST, HST, ALV, MOMS, MWST, TVA, IVA — it is read as tax and never
+        country calls it, whether VAT, GST, HST, ALV, MOMS, MWST, TVA or IVA, it is read as tax and never
         charged to someone as though it were an item they bought.
       </p>
     ),
@@ -121,7 +121,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
       <>
         <p>
           Yes, once you are signed in. In the add-person sheet, type their name and choose{' '}
-          <strong>Add only to this split</strong> — the maths will be right and they appear
+          <strong>Add only to this split</strong>. The maths will be right and they appear
           everywhere in the breakdown. Splitwise itself only accepts an expense where everyone has
           an account, so the expense is sent for the people who do.
         </p>
@@ -138,7 +138,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
       <>
         <p>
           Yes. Open the split under Your splits and press <strong>Create share link</strong>. That
-          gives you a link showing the same page you see — the receipt photo, every item and who
+          gives you a link showing the same page you see: the receipt photo, every item and who
           shared it, who paid, and who owes whom. Whoever opens it needs no account and cannot
           change anything.
         </p>
@@ -162,14 +162,14 @@ const QA: { q: string; a: React.ReactNode }[] = [
           so you can press again in a minute.
         </p>
         <p>
-          This app has its own limit — <strong>30 expenses an hour per account</strong> — to protect
+          This app has its own limit of <strong>30 expenses an hour per account</strong>, to protect
           the shared free quotas. The send screen shows how many you&rsquo;ve sent this hour and in
           the last 24 hours, so you always know where you stand.
         </p>
         <p>
           Scanning has a separate, shared ceiling: the receipt reader runs on a free tier with a
           daily cap across everyone using Gauravide. When it runs out the app falls back to a
-          simpler reader rather than stopping — it is less accurate, especially on a photo taken at
+          simpler reader rather than stopping. It is less accurate, especially on a photo taken at
           an angle, and it says so on the review screen so you know to check every line. Typing a
           receipt in by hand always works and is never rate limited.
         </p>
@@ -183,7 +183,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
         <p>
           Yes. Gauravide reads the currency off the receipt rather than assuming dollars, and the
           expense reaches Splitwise in that currency. It works out which one from what the receipt
-          prints: a currency code, then a symbol only one currency uses — £, €, ₹ — and then the
+          prints: a currency code, then a symbol only one currency uses such as £, € or ₹, and then the
           tax word, which names the country. GST and HST mean Canada, ALV Finland, MOMS Sweden, MVA
           Norway, MWST Switzerland, BTW the Netherlands, TVA France, IVA Spain or Italy, VAT Britain
           and much of Europe.
@@ -194,13 +194,13 @@ const QA: { q: string; a: React.ReactNode }[] = [
           the same amount.
         </p>
         <p>
-          A plain dollar sign is the one thing it cannot be certain about — Canada, Australia, New
+          A plain dollar sign is the one thing it cannot be certain about, because Canada, Australia, New
           Zealand and Singapore all print one. So the currency sits on the review screen as a
           dropdown you can change in a tap, and it is worth a glance before you send: Splitwise
           cannot change an expense&rsquo;s currency afterwards.
         </p>
         <p>
-          Currencies without cents — yen, won — are not supported yet; the app falls back to dollars
+          Currencies without cents, such as yen and won, are not supported yet. The app falls back to dollars
           rather than quietly showing you the wrong number.
         </p>
       </>
@@ -211,7 +211,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         Not by itself, on purpose. Open the split and press <strong>Check Splitwise</strong>: it
-        compares the two copies and shows exactly what differs — total, name, date, group, who paid,
+        compares the two copies and shows exactly what differs: total, name, date, group, who paid,
         who owes. Then you choose: take Splitwise&rsquo;s version, or push yours over theirs (which
         changes it for everyone in it). If it was deleted there, the page says so. Splitwise has no
         idea about items, so pulling updates the amounts and flags the item breakdown if it no
@@ -236,7 +236,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         <strong>No</strong>, and not because we haven&rsquo;t got to it. Neither company offers a
-        public API for your own order history — the developer APIs they publish are for marketplace
+        public API for your own order history. The developer APIs they publish are for marketplace
         sellers and affiliates. Photographing the receipt is the honest route.
       </p>
     ),
@@ -245,7 +245,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
     q: 'What if the scan reads a price wrong?',
     a: (
       <p>
-        Fix it — every line is editable, and lines the scan was unsure about are highlighted so your
+        Fix it. Every line is editable, and lines the scan was unsure about are highlighted so your
         eye goes straight to them. If the items don&rsquo;t add up to the printed total, the app
         says so and points at the gap. It will never quietly adjust a price to make the numbers
         balance.
@@ -257,7 +257,7 @@ const QA: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         Yes, exactly. All money is handled in whole cents, and shares are distributed so they sum to
-        the total to the penny — any leftover cent goes to whoever paid. The app refuses to submit
+        the total to the penny, and any leftover cent goes to whoever paid. The app refuses to submit
         an expense that doesn&rsquo;t reconcile.
       </p>
     ),
@@ -286,7 +286,7 @@ export default function Faq() {
         ))}
       </div>
       <p className={styles.disclaimer}>
-        Still stuck? <a href="/contact">Tell us</a> — bugs and suggestions both welcome.
+        Still stuck? <a href="/contact">Tell us</a>. Bugs and suggestions both welcome.
       </p>
     </div>
   )

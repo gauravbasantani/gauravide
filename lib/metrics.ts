@@ -165,6 +165,9 @@ function toProps(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
 
+/** Scans from before the currency was recorded. Not a currency code. */
+export const UNRECORDED = 'unknown'
+
 /** The everyday name for the place a currency comes from. */
 const CURRENCY_HOME: Record<string, string> = {
   USD: 'United States',
@@ -204,9 +207,13 @@ function reachByCurrency(
     return existing
   }
 
+  // Scans older than the day currencies began being recorded have none. They
+  // are counted under their own heading rather than dropped: a table whose
+  // scans do not add up to the "Receipts scanned" tile beside it reads as a
+  // bug, and the reader is left to wonder which number is lying.
   for (const scan of scans) {
-    const currency = typeof scan.props?.currency === 'string' ? scan.props.currency : null
-    if (currency) row(currency).scans++
+    const currency = typeof scan.props?.currency === 'string' ? scan.props.currency : UNRECORDED
+    row(currency).scans++
   }
   for (const split of splits) {
     const entry = row(split.currency || 'USD')
@@ -217,10 +224,18 @@ function reachByCurrency(
   return [...rows]
     .map(([currency, counts]) => ({
       currency,
-      where: CURRENCY_HOME[currency] ?? currency,
+      where:
+        currency === UNRECORDED ? 'Before this was recorded' : (CURRENCY_HOME[currency] ?? currency),
       ...counts,
     }))
-    .sort((a, b) => b.scans + b.splits - (a.scans + a.splits))
+    // The unknown bucket last: it is history, not a place.
+    .sort((a, b) =>
+      a.currency === UNRECORDED
+        ? 1
+        : b.currency === UNRECORDED
+          ? -1
+          : b.scans + b.splits - (a.scans + a.splits),
+    )
 }
 
 export function computeMetrics({

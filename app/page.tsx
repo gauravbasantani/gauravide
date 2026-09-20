@@ -26,7 +26,7 @@ const STEPS = [
   {
     n: '1',
     title: 'Add the receipt',
-    body: 'Take a photo, upload a photo or PDF from Walmart, Safeway or anywhere else, or type the items in.',
+    body: 'Take a photo, upload a photo or PDF from any shop or restaurant, or type the items in.',
   },
   { n: '2', title: 'Check it', body: 'Every line is read back for you to fix. Unclear ones are flagged.' },
   { n: '3', title: 'Split it', body: 'Tap who had what. Or split equally, by shares, or by exact amounts.' },
@@ -66,7 +66,17 @@ const CASES = [
   {
     icon: '🏷️',
     title: 'Tax to the right person',
-    body: 'Receipt tax codes are read, so whoever bought the taxed item pays its tax.',
+    body: 'Receipt tax codes are read, so whoever bought the taxed item pays its tax. VAT, GST, HST and ALV all count.',
+  },
+  {
+    icon: '🌍',
+    title: 'Any currency',
+    body: 'Pounds, euros, Canadian dollars. The currency is read off the receipt and sent to Splitwise as it was printed.',
+  },
+  {
+    icon: '📄',
+    title: 'Long PDFs, every page',
+    body: 'An emailed receipt or a multi page grocery PDF is read right through to the last line.',
   },
 ]
 
@@ -121,10 +131,10 @@ export default async function Home({
         </h1>
 
         <p className={[styles.tagline, 'rise', 'rise-2'].join(' ')}>
-          No spreadsheet. No calculator. Add a photo or PDF of any receipt — a supermarket, a
-          restaurant, anywhere in the world — or type it in yourself. Tap who had what. It lands in
-          Splitwise as an exact expense, item by item, tax and all, in the currency the receipt was
-          printed in.
+          No spreadsheet. No calculator. Add a photo or PDF of any receipt from a supermarket, a
+          restaurant, anywhere in the world, or type it in yourself. Tap who had what. It lands in
+          Splitwise as an exact expense, item by item, tax and all, in the currency the receipt
+          was printed in.
         </p>
 
         <div className={[styles.actions, 'rise', 'rise-3'].join(' ')}>
