@@ -277,6 +277,61 @@ test.describe('the whole split, end to end', () => {
     await expect(page.getByRole('button', { name: /add to splitwise/i })).toHaveCount(0)
   })
 
+  test('a foreign receipt keeps its currency all the way to Splitwise', async ({ page }) => {
+    // The currency the reader detects becomes the currency of a real
+    // expense, and a dollar sign is shared by a dozen countries — so it is
+    // shown in pounds, correctable in one tap, and sent as chosen.
+    const posted: Record<string, unknown> = {}
+    await mockSignedIn(page)
+    await mockExpense(page, posted)
+    await page.route('**/api/receipt/extract', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          source: 'gemini',
+          warnings: [],
+          receipt: {
+            merchant: 'Tesco Extra',
+            date: '2026-09-14',
+            currency: 'GBP',
+            items: [{ id: 'a', name: 'Cheddar 400g', qty: 1, cents: 350, confidence: 0.99 }],
+            taxLines: [],
+            subtotalCents: 350,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 350,
+          },
+        }),
+      }),
+    )
+
+    await page.goto('/new')
+    await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
+    await page.getByRole('button', { name: /read this receipt/i }).click()
+    await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
+
+    // Pounds, not dollars, everywhere the amount is shown.
+    await expect(page.getByLabel('Currency')).toHaveValue('GBP')
+    await expect(page.getByText('£3.50').first()).toBeVisible()
+
+    // And it is correctable: a dollar receipt read as the wrong dollar must
+    // not be a dead end.
+    await page.getByLabel('Currency').selectOption('CAD')
+    await expect(page.getByText('$3.50').first()).toBeVisible()
+    await page.getByLabel('Currency').selectOption('GBP')
+
+    await page.getByRole('button', { name: /looks right/i }).click()
+    await addFriend(page, 'Alex')
+    await page.getByRole('button', { name: /everyone shares everything/i }).click()
+    await page.getByRole('button', { name: /next: who paid/i }).click()
+    await page.getByRole('button', { name: /add to splitwise/i }).click()
+    await expect(page.getByRole('status')).toContainText(/added to splitwise/i)
+
+    expect(posted).toMatchObject({ currency: 'GBP', totalCents: 350 })
+  })
+
   test('split equally, with two people paying', async ({ page }) => {
     const posted: Record<string, unknown> = {}
     await mockSignedIn(page)

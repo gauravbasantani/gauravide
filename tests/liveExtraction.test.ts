@@ -47,6 +47,10 @@ type Case = {
   minItemsFallback: number
   /** A line that must appear, however the rest is grouped. */
   expect: RegExp
+  /** The ISO code this receipt must come back as — it reaches Splitwise. */
+  currency?: string
+  /** The date it prints, read in its own country's order. */
+  date?: string
 }
 
 const COSTCO = /towel|bath|snaps/i
@@ -61,6 +65,11 @@ const CASES: Case[] = [
   // return a correct total beside zero items.
   { file: 'receipt-simple.png', mime: 'image/png', what: 'simple, 3 lines', minItems: 3, minItemsFallback: 3, expect: /latte/i },
   { file: 'receipt-simple.pdf', mime: 'application/pdf', what: 'simple, 1-page PDF', minItems: 3, minItemsFallback: 3, expect: /latte/i },
+  // Outside the United States: each must come back in its own currency, with
+  // the day read the way that country writes it, and its tax word understood.
+  { file: 'receipt-uk.pdf', mime: 'application/pdf', what: 'UK, pounds and VAT', minItems: 3, minItemsFallback: 3, expect: /milk|bread|cheddar/i, currency: 'GBP', date: '2026-09-14' },
+  { file: 'receipt-fi.pdf', mime: 'application/pdf', what: 'Finland, euros and ALV', minItems: 3, minItemsFallback: 3, expect: /maito|leip|juusto/i, currency: 'EUR', date: '2026-09-14' },
+  { file: 'receipt-ca.pdf', mime: 'application/pdf', what: 'Canada, dollars and GST', minItems: 3, minItemsFallback: 3, expect: /milk|bread|cheese/i, currency: 'CAD', date: '2026-09-14' },
   // Complex PDF: 80 items across two pages. Page 2 is what used to go missing.
   // OCR.space returns both pages but reads little of the second, so its bound
   // is deliberately lower than Gemini's.
@@ -93,7 +102,8 @@ describe.skipIf(!LIVE)('live extraction, every accepted format', () => {
         console.log(
           `  ${testCase.file.padEnd(20)} ${result.source.padEnd(9)} ` +
             `${String(result.receipt.items.length).padStart(3)} items  ` +
-            `total ${result.receipt.totalCents}`,
+            `${result.receipt.currency}  date ${result.receipt.date}  ` +
+            `tax ${result.receipt.taxCents}  total ${result.receipt.totalCents}`,
         )
 
         // A format the fallback cannot read at all is a gap in that rung, not
@@ -105,6 +115,8 @@ describe.skipIf(!LIVE)('live extraction, every accepted format', () => {
 
         expect(result.receipt.items.length).toBeGreaterThanOrEqual(floor)
         expect(names).toMatch(testCase.expect)
+        if (testCase.currency) expect(result.receipt.currency).toBe(testCase.currency)
+        if (testCase.date) expect(result.receipt.date).toBe(testCase.date)
         // Nothing may be nameless, and no line may be silently empty.
         for (const item of result.receipt.items) expect(item.name.trim()).not.toBe('')
       },

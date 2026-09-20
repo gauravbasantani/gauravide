@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
-import { formatMoney, parseMoney } from '@/lib/money'
+import { CURRENCIES, currencyLabel, formatMoney, parseMoney } from '@/lib/money'
 import { splitQuantityIntoItems, unitCount, type ExtractedReceipt } from '@/lib/receipt'
 import styles from './ReviewStep.module.css'
 import flow from './flow.module.css'
@@ -166,6 +166,26 @@ export function ReviewStep({ receipt, warnings, imageUrl, onChange, onBack, onNe
             defaultValue={receipt.date ?? ''}
             onBlur={(e) => onChange({ ...receipt, date: e.target.value || null })}
           />
+          {/* Read from the receipt, but a dollar sign is shared by a dozen
+              countries — and this is the last chance to correct it before
+              the expense reaches Splitwise. */}
+          <div className={styles.currencyField}>
+            <label className={styles.currencyLabel} htmlFor="receipt-currency">
+              Currency
+            </label>
+            <select
+              id="receipt-currency"
+              className={styles.currencySelect}
+              value={CURRENCIES.includes(currency as (typeof CURRENCIES)[number]) ? currency : 'USD'}
+              onChange={(e) => onChange({ ...receipt, currency: e.target.value })}
+            >
+              {CURRENCIES.map((code) => (
+                <option key={code} value={code}>
+                  {currencyLabel(code)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 

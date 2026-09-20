@@ -54,9 +54,48 @@ export function parseMoney(input: string): ParseResult {
   return { ok: true, cents: negative ? -cents : cents }
 }
 
-/** Format cents for display. Always shows a currency symbol (UX-21). */
-export function formatMoney(cents: Cents, currency = 'USD', locale = 'en-US'): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(cents / 100)
+/**
+ * Where each currency is written the way its readers expect.
+ *
+ * Formatting euros in en-US gives "€12.35"; a Finnish reader writes
+ * "12,35 €". The mapping is fixed rather than taken from the browser, so the
+ * server and the client always render a price identically — a locale that
+ * differs between them tears React's hydration apart.
+ */
+const CURRENCY_LOCALE: Record<string, string> = {
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  CAD: 'en-CA',
+  AUD: 'en-AU',
+  NZD: 'en-NZ',
+  CHF: 'de-CH',
+  SEK: 'sv-SE',
+  NOK: 'nb-NO',
+  DKK: 'da-DK',
+  PLN: 'pl-PL',
+  CZK: 'cs-CZ',
+  INR: 'en-IN',
+  JPY: 'ja-JP',
+  MXN: 'es-MX',
+  ZAR: 'en-ZA',
+  SGD: 'en-SG',
+  HKD: 'en-HK',
+}
+
+/**
+ * Format cents for display. Always shows a currency symbol (UX-21).
+ *
+ * An unknown or malformed currency code must never throw: Intl rejects
+ * anything that is not three letters, and the code can come from a model.
+ */
+export function formatMoney(cents: Cents, currency = 'USD', locale?: string): string {
+  const code = /^[A-Za-z]{3}$/.test(currency) ? currency.toUpperCase() : 'USD'
+  const where = locale ?? CURRENCY_LOCALE[code] ?? 'en-US'
+  try {
+    return new Intl.NumberFormat(where, { style: 'currency', currency: code }).format(cents / 100)
+  } catch {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+  }
 }
 
 export function sum(values: readonly Cents[]): Cents {
@@ -101,4 +140,40 @@ export function allocate(total: Cents, weights: readonly number[]): Cents[] {
   }
 
   return out
+}
+
+/**
+ * The currencies offered in the review step.
+ *
+ * Detection reads what the receipt prints, but a dollar sign is shared by a
+ * dozen countries and no reader can be certain. One tap must be enough to
+ * correct it, because the choice reaches Splitwise and cannot be fixed from
+ * inside this app afterwards.
+ */
+export const CURRENCIES = [
+  'USD',
+  'CAD',
+  'EUR',
+  'GBP',
+  'AUD',
+  'NZD',
+  'CHF',
+  'SEK',
+  'NOK',
+  'DKK',
+  'PLN',
+  'CZK',
+  'INR',
+  'JPY',
+  'SGD',
+  'HKD',
+  'MXN',
+  'ZAR',
+] as const
+
+/** "GBP — £ British Pound", for a picker that means something to a human. */
+export function currencyLabel(code: string, locale = 'en-US'): string {
+  const name = new Intl.DisplayNames([locale], { type: 'currency' }).of(code) ?? code
+  const symbol = formatMoney(0, code).replace(/[\d.,\s\u00a0]/g, '')
+  return symbol && symbol !== code ? `${code} — ${symbol} ${name}` : `${code} — ${name}`
 }

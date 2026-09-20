@@ -226,10 +226,23 @@ Rules, in order of importance:
    T, X...) marking which tax rate applies. Capture it in taxFlag, verbatim.
    If the receipt breaks tax down by rate (e.g. "A 8.1% TAX 5.57" and
    "E 1.8% TAX 0.60"), put each in taxLines with its flag and cents.
-5. The DATE is the one printed on the receipt, not today.
+5. The DATE is the one printed on the receipt, not today. Return ISO
+   YYYY-MM-DD. Read the receipt's own order before converting: 14/09/2026 is
+   14 September, and outside the United States the day is written first.
+   Never return an impossible date — if the order is genuinely unclear, use
+   the country implied by the currency and tax word.
 6. DECIMAL SEPARATORS: if the receipt uses "1.234,56", the comma is the
    decimal separator. Read the format the receipt actually uses.
-7. Use the RECEIPT's currency. Infer from the symbol or locale; default USD.
+7. CURRENCY: return the ISO code of the money actually printed, because it
+   becomes the currency of a real expense. Read the evidence in this order:
+   a printed code (EUR, CAD, GBP) is decisive; then a symbol only one
+   currency uses — £ GBP, € EUR, ₹ INR, ¥ JPY; then the tax word, which
+   names the country — GST/HST/PST/QST Canada, ALV Finland, MOMS Sweden,
+   MVA Norway, MWST Switzerland, BTW Netherlands, TVA France, IVA Spain or
+   Italy, VAT Britain and much of Europe; then the language of the items.
+   A bare "$" is shared by the US, Canada, Australia, NZ and Singapore — use
+   the tax word and language to choose between them, and only default to USD
+   when nothing else on the receipt disagrees.
 8. qty is how many units that LINE covers; cents is the line TOTAL for them.
 9. confidence is 0..1 — your own certainty about that line. Be honest: mark
    anything smudged, cut off, or ambiguous below 0.7.
@@ -463,6 +476,139 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
   }
 }
 
+/* ──────────────────── Reading a receipt from anywhere ──────────────────── */
+
+/**
+ * Which currency is this?
+ *
+ * The backup reader gets flat text with no metadata, so the receipt has to
+ * say. Evidence is ranked: a printed ISO code is certain, a £ or € is nearly
+ * certain, and a tax word is a strong hint — GST beside dollars is Canada,
+ * ALV is Finland. The dollar sign alone stays USD, because it is shared by a
+ * dozen countries and a wrong guess puts the wrong currency on someone's
+ * Splitwise expense.
+ */
+const ISO_CODES =
+  /\b(USD|CAD|GBP|EUR|AUD|NZD|CHF|SEK|NOK|DKK|INR|JPY|MXN|SGD|HKD|ZAR|PLN|CZK)\b/
+
+/** A symbol only one currency uses. The dollar sign is deliberately absent. */
+const SYMBOLS: [RegExp, string][] = [
+  [/£/, 'GBP'],
+  [/€/, 'EUR'],
+  [/₹/, 'INR'],
+  [/[¥￥]/, 'JPY'],
+  [/₩/, 'KRW'],
+  [/\bCHF\b/i, 'CHF'],
+  [/\bzł\b/i, 'PLN'],
+]
+
+/**
+ * What each country calls its sales tax, and what that implies.
+ *
+ * A tax word is the single most reliable clue on a receipt that prints no
+ * symbol at all — every country prints its own, and they barely overlap.
+ * VAT is the exception: Britain, Ireland and a dozen others use it, so it
+ * names no currency on its own.
+ */
+const TAX_SYSTEMS: { word: RegExp; currency?: string }[] = [
+  { word: /\b(HST|QST|TPS|TVQ)\b/, currency: 'CAD' }, // Canada only
+  { word: /\bALV\b/, currency: 'EUR' }, // Finland
+  { word: /\bMVA\b/, currency: 'NOK' }, // Norway
+  { word: /\bMWST\b/, currency: 'CHF' }, // Switzerland
+  { word: /\bBTW\b/, currency: 'EUR' }, // Netherlands
+  { word: /\b(MOMS)\b/, currency: 'SEK' }, // Sweden and Denmark share the word
+  { word: /\b(IVA|TVA)\b/, currency: 'EUR' }, // Spain, Italy, France
+  { word: /\bPST\b/, currency: 'CAD' }, // provincial: Canada only
+  { word: /\bGST\b/, currency: 'CAD' }, // shared with AU, NZ, SG — see below
+  { word: /\bVAT\b/ }, // Britain and much of Europe
+]
+
+/** Every tax word, for telling a tax line apart from something someone ate. */
+export const TAX_WORD =
+  /(?:^|[^\p{L}\d])(TAX|VAT|GST|HST|PST|QST|TPS|TVQ|ALV|MOMS|MVA|MWST|BTW|TVA|IVA)(?![\p{L}\d])/u
+
+/**
+ * Strip accents before matching a keyword.
+ *
+ * OCR drops diacritics constantly: a Finnish receipt's YHTEENSÄ comes back
+ * as YHTEENSA, and the total was then read as an item. Comparing without
+ * accents matches both, so the word lists below stay plain ASCII.
+ */
+const deaccent = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+/**
+ * "Total" in the languages this reader is likely to meet.
+ *
+ * The boundaries are spelled out rather than using \b, which is ASCII-only:
+ * YHTEENSÄ ends in a letter JavaScript does not consider a word character,
+ * so \b never matched it and Finland's total was read as an item.
+ */
+const TOTAL_WORD =
+  /(?:^|[^\p{L}\d])(TOTAL|TOTALT|TOTALE|SUMMA|SUMME|GESAMT|GESAMTBETRAG|YHTEENSA|MAKSETTAVA|SOMME|MONTANT|IMPORTE|BEDRAG|I ALT)(?![\p{L}\d])/u
+
+/** "Subtotal", likewise. Checked before total, since it often contains it. */
+const SUBTOTAL_WORD =
+  /(?:^|[^\p{L}\d])(SUBTOTAL|SUB-TOTAL|SUB TOTAL|VALISUMMA|ZWISCHENSUMME|SOUS-TOTAL|SOTTOTOTALE|DELSUMMA|NETTO)(?![\p{L}\d])/u
+
+/**
+ * Decide the currency from the whole receipt at once, before any line is
+ * read. Returns the ISO code and whether dates on this receipt are likely to
+ * be day-first — everywhere except the United States, essentially.
+ */
+export function detectCurrency(text: string): { currency: string; dayFirst: boolean } {
+  const upper = deaccent(text.toUpperCase())
+
+  const iso = upper.match(ISO_CODES)?.[1]
+  const symbol = SYMBOLS.find(([re]) => re.test(text))?.[1]
+  const taxHint = TAX_SYSTEMS.find((t) => t.word.test(upper))?.currency
+
+  // A dollar sign alone is USD: a dozen countries print it, and guessing
+  // wrong puts the wrong currency on someone's expense. But dollars beside
+  // GST cannot be American — the United States has no GST — so the tax word
+  // wins. It may still be Australia or Singapore rather than Canada, which
+  // is why the review step lets anyone correct it in one tap.
+  const currency = iso ?? symbol ?? taxHint ?? 'USD'
+
+  return { currency, dayFirst: currency !== 'USD' }
+}
+
+/**
+ * The date the receipt prints, as ISO.
+ *
+ * 14/09/2026 used to become "2026-14-09" — a month of fourteen, which then
+ * sailed through validation because it still looked like a date. Order is
+ * resolved by evidence first (a number above twelve can only be a day) and
+ * by the receipt's own currency second. Dots, slashes and dashes all count,
+ * because Finland writes 14.09.2026 and nobody else does.
+ */
+export function parseReceiptDate(text: string, dayFirst: boolean): string | null {
+  // ISO first: unambiguous, and worth preferring wherever it appears.
+  const iso = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/)
+  if (iso) return validDate(Number(iso[1]), Number(iso[2]), Number(iso[3]))
+
+  const match = text.match(/\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/)
+  if (!match) return null
+
+  const a = Number(match[1])
+  const b = Number(match[2])
+  const year = fullYear(Number(match[3]))
+
+  // A number above twelve can only be a day; otherwise trust the locale.
+  const dayIsFirst = a > 12 ? true : b > 12 ? false : dayFirst
+  return validDate(year, dayIsFirst ? b : a, dayIsFirst ? a : b)
+}
+
+const fullYear = (year: number) => (year < 100 ? 2000 + year : year)
+
+/** An impossible date is worse than no date: it reaches Splitwise either way. */
+function validDate(year: number, month: number, day: number): string | null {
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return null
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return Number.isNaN(Date.parse(iso)) ? null : iso
+}
+
+export { TOTAL_WORD, SUBTOTAL_WORD }
+
 /**
  * Turn raw OCR text into a draft receipt.
  *
@@ -477,13 +623,28 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
  * so we split on tabs (or runs of spaces), take the last field that looks
  * like money, and treat what precedes it as the label.
  */
-const MONEY = /(-?\$?\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*(-?)\s*([A-Z])?\s*$/
+const MONEY = /(-?\d{1,3}(?:[.,\s]\d{3})*[.,]\d{2})\s*(-?)\s*([A-Z])?\s*$/
+
+/**
+ * Currency marks, stripped before an amount is read.
+ *
+ * "1,35 €" ends with a symbol, so an expression anchored on digits never
+ * matched it and every Finnish line was skipped. Removing the mark first
+ * means one expression works for $1.35, £1.35 and 1,35 € alike.
+ */
+const CURRENCY_MARK = /[$£€¥￥₹₩]|\b(?:CHF|EUR|USD|CAD|GBP|SEK|NOK|DKK|PLN|kr|zł)\b/gi
+
+const withoutCurrency = (field: string) => field.replace(CURRENCY_MARK, '').trim()
 
 /** Lines that are payment plumbing, not things anyone ate. */
 const NOT_AN_ITEM =
-  /\b(CHANGE|CASH|VISA|MASTERCARD|AMEX|DEBIT|CREDIT|CARD|BALANCE|APPROVED|AUTH|CHIP|SEQ|AID|RESP|TEND(ER)?|ACCOUNT|MEMBER|ITEMS SOLD|TOTAL NUMBER)\b/i
+  /\b(CHANGE|CASH|VISA|MASTERCARD|AMEX|DEBIT|CREDIT|CARD|BALANCE|APPROVED|AUTH|CHIP|SEQ|AID|RESP|TEND(ER)?|ACCOUNT|MEMBER|ITEMS SOLD|TOTAL NUMBER|KORTTI|PANKKIKORTTI|KATEINEN|MAKSUKORTTI|KIITOS|ESPECES|CARTE|MONNAIE|MERCI|KREDITKARTE|BARGELD|WECHSELGELD|KONTANT|VAXEL|BETALT)\b/i
 
 export function parseLines(text: string): ExtractedReceipt {
+  // Currency first: it decides how dates are read, and it must reach
+  // Splitwise correctly — a £20 receipt filed as $20 is a money error.
+  const { currency, dayFirst } = detectCurrency(text)
+
   const items: ExtractedItem[] = []
   const taxLines: { flag: string; cents: number }[] = []
   let totalCents: number | null = null
@@ -497,14 +658,11 @@ export function parseLines(text: string): ExtractedReceipt {
     if (!line.trim()) continue
 
     // Merchant: the first meaningful line, before any prices appear.
-    if (merchant === null && !MONEY.test(line) && /[A-Za-z]{3}/.test(line)) {
+    if (merchant === null && !MONEY.test(withoutCurrency(line)) && /[A-Za-z]{3}/.test(line)) {
       merchant = line.split(/\t|\s{2,}/)[0]?.trim().slice(0, 120) ?? null
     }
 
-    if (date === null) {
-      const d = line.match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/)
-      if (d) date = `${d[3]}-${d[1]}-${d[2]}`
-    }
+    if (date === null) date = parseReceiptDate(line, dayFirst)
 
     // Columns, then the last one that looks like money.
     const fields = line.split(/\t|\s{2,}/).map((f) => f.trim()).filter(Boolean)
@@ -514,8 +672,9 @@ export function parseLines(text: string): ExtractedReceipt {
     let amountIndex = -1
     for (let i = fields.length - 1; i >= 0; i--) {
       const field = fields[i]
-      if (field && MONEY.test(field)) {
-        amountField = field
+      const bare = field ? withoutCurrency(field) : ''
+      if (bare && MONEY.test(bare)) {
+        amountField = bare
         amountIndex = i
         break
       }
@@ -532,23 +691,26 @@ export function parseLines(text: string): ExtractedReceipt {
     const negative = Boolean(m[2]) || /-\s*[A-Z]?\s*$/.test(amountField)
     const flag = m[3]
     const label = fields.slice(0, amountIndex).join(' ').trim()
-    const key = label.toUpperCase()
+    // Accents removed: OCR loses them, and every keyword list is ASCII.
+    const key = deaccent(label.toUpperCase())
 
-    // Per-rate tax lines: "A 8.1% TAX  5.57"
-    const rateTax = key.match(/^([A-Z])\s+[\d.]+%\s*TAX$/)
+    // Per-rate tax lines: "A 8.1% TAX  5.57", "ALV 24% 1,53"
+    const rateTax = key.match(/^([A-Z])\s+[\d.,]+%\s*(?:TAX|VAT|ALV|MOMS|MWST|TVA|IVA|BTW)$/)
     if (rateTax?.[1]) {
       taxLines.push({ flag: rateTax[1], cents })
       continue
     }
-    if (/^TOTAL TAX$/.test(key) || (/\bTAX\b/.test(key) && !/^[A-Z]\s/.test(key))) {
-      taxCents = cents
+    // GST, HST, VAT, ALV, MOMS — every country names its own tax, and none of
+    // them are things anyone ate.
+    if (TAX_WORD.test(key) && !/^[A-Z]\s/.test(key)) {
+      taxCents = (taxCents ?? 0) + cents
       continue
     }
-    if (/SUBTOTAL/.test(key)) {
+    if (SUBTOTAL_WORD.test(key)) {
       subtotalCents = cents
       continue
     }
-    if (/\bTOTAL\b/.test(key) && !/SUB/.test(key)) {
+    if (TOTAL_WORD.test(key) && !/SUB/.test(key)) {
       totalCents = cents
       continue
     }
@@ -571,7 +733,7 @@ export function parseLines(text: string): ExtractedReceipt {
   return ExtractedReceipt.parse({
     merchant,
     date,
-    currency: 'USD',
+    currency,
     items: items.slice(0, MAX_ITEMS),
     taxLines,
     subtotalCents,

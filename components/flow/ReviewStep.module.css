@@ -5,9 +5,42 @@
 }
 
 @media (min-width: 640px) {
+  /* Merchant takes the room it needs; date and currency sit beside it. */
   .headRow {
-    grid-template-columns: 1fr 12rem;
+    grid-template-columns: 1fr 12rem 12rem;
   }
+}
+
+/* Matches Field, which cannot wrap a <select>. */
+.currencyField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.currencyLabel {
+  font-size: var(--text-meta);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.currencySelect {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-3);
+  /* Never below 16px, or iOS Safari zooms on focus and breaks the layout. */
+  font-size: var(--text-body);
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-interactive); /* 3.74:1 — WCAG 1.4.11 */
+  border-radius: var(--radius-sm);
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.currencySelect:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .itemsHead {
