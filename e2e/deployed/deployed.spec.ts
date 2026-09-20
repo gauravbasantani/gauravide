@@ -138,6 +138,59 @@ test.describe('the deployed site', () => {
     for (const channel of corner ?? []) expect(channel).toBeGreaterThan(200)
   })
 
+  test('a receipt in pounds shows pounds, and the currency can be corrected', async ({ page }) => {
+    await page.route('**/api/receipt/extract', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          source: 'gemini',
+          warnings: [],
+          receipt: {
+            merchant: 'Tesco Extra',
+            date: '2026-09-14',
+            currency: 'GBP',
+            items: [{ id: 'a', name: 'Cheddar 400g', qty: 1, cents: 350, confidence: 0.99 }],
+            taxLines: [],
+            subtotalCents: 350,
+            taxCents: 0,
+            tipCents: 0,
+            feeCents: 0,
+            totalCents: 350,
+          },
+        }),
+      }),
+    )
+
+    await page.goto('/new')
+    await page.locator('input[type="file"]').last().setInputFiles(PDF)
+    await page.getByRole('button', { name: /read this receipt/i }).click()
+    await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
+
+    await expect(page.getByLabel('Currency')).toHaveValue('GBP')
+    await expect(page.getByText('£3.50').first()).toBeVisible()
+    // Correctable, because a dollar sign cannot be pinned to one country.
+    await page.getByLabel('Currency').selectOption('CAD')
+    await expect(page.getByText('$3.50').first()).toBeVisible()
+  })
+
+  test('the FAQ answers the question people abroad will ask', async ({ page }) => {
+    await page.goto('/faq')
+    await expect(
+      page.getByRole('heading', { name: /does it work outside the united states/i }),
+    ).toBeVisible()
+    await expect(page.getByText(/GST and HST mean Canada/i)).toBeVisible()
+    // The scanning ceiling is stated rather than discovered.
+    await expect(page.getByText(/falls back to a simpler reader/i)).toBeVisible()
+  })
+
+  test('about and contact still render, with the international tax wording', async ({ page }) => {
+    await page.goto('/about')
+    await expect(page.getByText(/VAT, GST, HST, ALV, MOMS, MWST, TVA, IVA/i)).toBeVisible()
+    await page.goto('/contact')
+    await expect(page.locator('h1')).toBeVisible()
+  })
+
   test('all 80 items of a long receipt reach the review step', async ({ page }) => {
     await captureUpload(page)
 
