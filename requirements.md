@@ -240,6 +240,9 @@ to build and the most secure thing to operate.
 }
 ```
 - **FR-9** If `subtotal + tax + tip + fees != total`, flag it visibly and let the user correct it before continuing.
+- **FR-9a** `currency` is an ISO-4217 code read from the receipt itself, not assumed. See §5m
+  for how it is decided, why it is also a control the user can change, and which currencies
+  this system refuses to offer.
 
 ### Review & assign
 - **FR-10** Every extracted item is editable: name, qty, price. Items can be added or deleted.
@@ -1667,3 +1670,74 @@ to scroll, do good UX of this split page. The link works good and cool."*
   clipboard; WebKit has no such permission, so on the mobile project the copy assertion is skipped
   rather than asserting the fallback. Without this the test was silently exercising the failure
   path and calling it a pass.
+
+---
+
+## 5m. Receipts from outside the United States (added 2026-09-20)
+
+The reader assumed America in four separate places, and each failed silently rather than
+erroring. A £20 Tesco receipt was filed in Splitwise as **$20**; `14/09/2026` became
+`2026-14-09`, a month of fourteen that still matched the date pattern and was sent on; a
+Finnish receipt returned **nothing at all**, because `1,35 €` ends with its currency mark and
+the amount pattern was anchored on digits; and Canadian **GST** was charged to a person as
+though it were something they ate.
+
+- **FR-60** **Currency is read from evidence, strongest first, and is never invented.**
+  1. A printed ISO code (`EUR`, `CAD`, `GBP`) — decisive.
+  2. A symbol only one currency uses — `£` GBP, `€` EUR, `₹` INR.
+  3. The tax word, which names the country: GST/HST/PST/QST Canada, ALV Finland, MOMS Sweden,
+     MVA Norway, MWST Switzerland, BTW Netherlands, TVA France, IVA Spain and Italy, VAT
+     Britain and much of Europe.
+  4. Otherwise USD.
+
+  A bare `$` stays USD: a dozen countries print one, and a confident wrong guess reaches a
+  real expense. But dollars beside GST cannot be American — the United States has no GST — so
+  the tax word wins there.
+
+- **FR-61** **Detection is never the last word.** `$` with GST is Canada, Australia, New
+  Zealand or Singapore, and no amount of cleverness separates them from text alone. The review
+  step therefore offers currency as a **control**, beside merchant and date, filled in from the
+  receipt and correctable in one tap. Nothing inside this app can change an expense's currency
+  once it is in Splitwise, so this is the last honest chance to fix it.
+
+- **FR-62** **Dates are resolved by evidence, then by country, and are never impossible.**
+  A number above twelve can only be a day. Where the order is genuinely ambiguous, the country
+  implied by the currency decides — the United States writes the month first, almost nowhere
+  else does. Dots, slashes and dashes are all accepted, because Finland writes `14.09.2026`.
+  A date that is not a real date is dropped rather than passed on.
+
+- **FR-63** **Tax is recognised by every name its country gives it**, including per-rate lines
+  (`ALV 14%`, `A 8.1% TAX`). A tax line is not an item, in any language.
+
+- **FR-64** **Accents are stripped before any keyword is matched.** OCR loses them constantly:
+  Finland's `YHTEENSÄ` comes back as `YHTEENSA`, and the total was read as an item. Both must
+  match, so the keyword lists are plain ASCII and the text is normalised before comparison.
+
+- **FR-65** **Currencies with no minor unit are not offered.** Every amount in this system is
+  an integer of hundredths (ACC-2). In yen there are no hundredths, so 1235 would render as
+  `¥12` — a wrong number displayed with total confidence. JPY, KRW, VND, CLP, ISK and HUF fall
+  back to USD, which the user can see and correct, rather than being quietly misreported.
+
+- **FR-66** **Amounts are formatted the way each currency's readers write them** — `12,35 €`
+  in the eurozone, `£12.35` in Britain — from a fixed currency-to-locale table rather than the
+  visitor's browser, so the server and the client always render a price identically. A locale
+  that differs between them tears React's hydration apart.
+
+- **MET-20** **The admin dashboard reports reach by the currency on the receipt**, with the
+  country's everyday name beside it. It is the only signal of geography this app holds, and a
+  currency says *Britain*, not who was in the shop — so it stays inside the privacy boundary of
+  §5d. It answers the question the international reading raises: does this work outside the
+  country it was written in? A currency with scans but no splits is the shape of a place where
+  reading works and something afterwards does not.
+
+### What this does not solve
+
+- **Australia, New Zealand and Singapore read as Canada.** All three print `$` beside GST.
+  FR-61's picker is the answer; better guessing is not available.
+- **The backup reader cannot read a badly angled photo in any language.** OCR returns such an
+  image in column order, with labels and prices on different lines, and no line parser can
+  recover that. Tested against a real photographed Dutch supermarket receipt. The vision model
+  handles it; the fallback is a fallback.
+- **OPS-3 — the free vision quota is 20 requests per day for the whole project.** Past that,
+  every user gets the backup reader, which is markedly worse on real photographs. This is a
+  billing setting, not a code change, and it is the single largest risk to a public launch.

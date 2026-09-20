@@ -108,6 +108,19 @@ export type Metrics = {
     withPhoto: number | null
   }
   reader: { gemini: number; backup: number; failed: number }
+  /**
+   * Where this is being used, by the currency on the receipt — the only
+   * signal of country the app has, and the one that tells us whether the
+   * international reading actually works outside a test.
+   */
+  reach: {
+    currency: string
+    /** The country whose name a person would recognise, not an ISO code. */
+    where: string
+    scans: number
+    splits: number
+    cents: number
+  }[]
   /** How often people use it — the question behind "is this actually useful?" */
   frequency: {
     weeklyActive: number
@@ -150,6 +163,64 @@ function toProps(value: unknown): Record<string, unknown> {
     }
   }
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+/** The everyday name for the place a currency comes from. */
+const CURRENCY_HOME: Record<string, string> = {
+  USD: 'United States',
+  CAD: 'Canada',
+  GBP: 'United Kingdom',
+  EUR: 'Eurozone',
+  AUD: 'Australia',
+  NZD: 'New Zealand',
+  CHF: 'Switzerland',
+  SEK: 'Sweden',
+  NOK: 'Norway',
+  DKK: 'Denmark',
+  PLN: 'Poland',
+  CZK: 'Czechia',
+  INR: 'India',
+  SGD: 'Singapore',
+  HKD: 'Hong Kong',
+  MXN: 'Mexico',
+  ZAR: 'South Africa',
+}
+
+/**
+ * Scans and splits grouped by the currency on the receipt.
+ *
+ * Scans carry a currency only from the day that was recorded, so older rows
+ * simply do not appear — better a short honest table than a long one padded
+ * with guesses.
+ */
+function reachByCurrency(
+  scans: { props: Record<string, unknown> }[],
+  splits: SplitRow[],
+): Metrics['reach'] {
+  const rows = new Map<string, { scans: number; splits: number; cents: number }>()
+  const row = (currency: string) => {
+    const existing = rows.get(currency) ?? { scans: 0, splits: 0, cents: 0 }
+    rows.set(currency, existing)
+    return existing
+  }
+
+  for (const scan of scans) {
+    const currency = typeof scan.props?.currency === 'string' ? scan.props.currency : null
+    if (currency) row(currency).scans++
+  }
+  for (const split of splits) {
+    const entry = row(split.currency || 'USD')
+    entry.splits++
+    entry.cents += num(split.total) ?? 0
+  }
+
+  return [...rows]
+    .map(([currency, counts]) => ({
+      currency,
+      where: CURRENCY_HOME[currency] ?? currency,
+      ...counts,
+    }))
+    .sort((a, b) => b.scans + b.splits - (a.scans + a.splits))
 }
 
 export function computeMetrics({
@@ -367,6 +438,7 @@ export function computeMetrics({
         rangedSplits.length,
       ),
     },
+    reach: reachByCurrency(scans, rangedSplits),
     reader: {
       gemini: scans.filter((e) => e.props?.source === 'gemini').length,
       backup: scans.filter((e) => e.props?.source === 'ocrspace').length,

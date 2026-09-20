@@ -290,6 +290,14 @@
   color: var(--text-muted);
 }
 
+/* A caveat under a table, so a zero is not misread as a finding. */
+.note {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  font-size: var(--text-meta);
+  color: var(--text-muted);
+}
+
 /* ── Activity chart ────────────────────────────────────────── */
 .chart {
   display: grid;

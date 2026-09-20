@@ -169,5 +169,5 @@ export const MODES: { value: SplitMode; title: string; hint: string; icon: strin
   { value: 'items', title: 'By item', hint: 'Tap who had each line', icon: '🧾' },
   { value: 'equal', title: 'Equally', hint: 'Everyone pays the same', icon: '＝' },
   { value: 'shares', title: 'By shares', hint: 'A couple can count as 2', icon: '½' },
-  { value: 'exact', title: 'Exact amounts', hint: 'Type what each owes', icon: '$' },
+  { value: 'exact', title: 'Exact amounts', hint: 'Type what each owes', icon: '=' },
 ]

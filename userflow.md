@@ -183,6 +183,37 @@ Design rules:
   quietly overcharge everybody.
 - Tip field is editable and prominent for restaurant receipts, since it's usually not
   printed on the receipt the customer photographs.
+- **Currency sits beside merchant and date, as a control, not a label.** It is filled in
+  from the receipt, and correcting it takes one tap. See below for why it cannot simply
+  be detected and trusted.
+
+### Currency — read, shown, and correctable
+
+The currency chosen here becomes the currency of a real Splitwise expense, and nothing
+inside this app can change it afterwards. So it is read from evidence, strongest first:
+
+1. **A printed ISO code** — `EUR`, `CAD`, `GBP`. Decisive.
+2. **A symbol only one currency uses** — `£` GBP, `€` EUR, `₹` INR.
+3. **The tax word, which names the country.** Every country calls its sales tax something
+   different and they barely overlap: GST/HST/PST/QST Canada, ALV Finland, MOMS Sweden,
+   MVA Norway, MWST Switzerland, BTW Netherlands, TVA France, IVA Spain and Italy, VAT
+   Britain and much of Europe.
+4. **Otherwise USD.** A bare `$` is printed by a dozen countries, and a confident wrong
+   guess is worse than a safe default. But dollars beside GST cannot be American — the
+   United States has no GST — so the tax word wins there.
+
+That still cannot separate Canada from Australia or Singapore, all of which print `$`
+with GST. Detection is therefore never the last word: the picker is, and it is why the
+control exists rather than a read-only line of text.
+
+**Dates follow the same logic.** `14/09/2026` is 14 September, and outside the United
+States the day is written first. A number above twelve can only be a day; where the order
+is genuinely ambiguous the country implied by the currency decides. An impossible date is
+refused outright rather than passed to Splitwise — `2026-14-09` used to sail through.
+
+**Currencies with no minor unit are not offered.** Every amount in this app is an integer
+of hundredths, so yen would render as ¥12 for twelve-thirty-five — a wrong number shown
+with total confidence. JPY, KRW and their like fall back to USD and the user corrects it.
 
 ---
 
@@ -635,6 +666,15 @@ used* — and is structurally incapable of answering *what did anyone buy*.
 │  Reconciliation fail  0      ← must be 0   │
 └────────────────────────────────────────────┘
 
+  Where it is being used
+┌────────────────────────────────────────────┐
+│  United Kingdom   GBP    38 scans   21 sent│
+│  Canada           CAD    12 scans    9 sent│
+│  Eurozone         EUR     7 scans    4 sent│
+│  United States    USD   204 scans  160 sent│
+└────────────────────────────────────────────┘
+     grouped by the currency on the receipt
+
   Users
 ┌────────────────────────────────────────────┐
 │  7f3a2c   joined Aug 2   last Sep 10   23  │
@@ -642,6 +682,15 @@ used* — and is structurally incapable of answering *what did anyone buy*.
 └────────────────────────────────────────────┘
      opaque id · dates · transaction count only
 ```
+
+**Reach is grouped by the currency on the receipt**, which is the only signal of country
+this app has — and a currency says *Britain*, not who was in the shop. It answers the one
+question the international reading raises: does it actually work outside the country it
+was written in? A currency with scans but no splits is the shape of a country where
+reading works and something later does not.
+
+A zero in the scans column can mean *not recorded* rather than *nobody*: scans only began
+carrying a currency the day that was added, so the table says so underneath itself.
 
 What the admin sees about a user is **an id, two dates, and a number.** No email, no merchants,
 no amounts, no receipt images, no group names, no idea who they split with. That isn't a policy

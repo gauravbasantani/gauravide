@@ -30,7 +30,7 @@ type Props = {
 const KINDS: { value: Kind; title: string; hint: string; icon: string }[] = [
   { value: 'equal', title: 'Equally', hint: 'Same for each', icon: '＝' },
   { value: 'shares', title: 'By shares', hint: 'e.g. 2 : 1', icon: '½' },
-  { value: 'exact', title: 'Exact', hint: 'Type amounts', icon: '$' },
+  { value: 'exact', title: 'Exact', hint: 'Type amounts', icon: '=' },
 ]
 
 const zip = (ids: string[], values: number[]) =>

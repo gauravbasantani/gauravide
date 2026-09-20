@@ -62,6 +62,15 @@ export function parseMoney(input: string): ParseResult {
  * server and the client always render a price identically — a locale that
  * differs between them tears React's hydration apart.
  */
+/**
+ * Currencies with no minor unit, which this app cannot represent.
+ *
+ * Every amount here is an integer of hundredths. In yen there are no
+ * hundredths, so 1235 would render as "¥12" — a wrong number shown with
+ * total confidence. Better to not offer a currency than to misreport it.
+ */
+export const UNSUPPORTED_CURRENCIES = new Set(['JPY', 'KRW', 'VND', 'CLP', 'ISK', 'HUF'])
+
 const CURRENCY_LOCALE: Record<string, string> = {
   EUR: 'de-DE',
   GBP: 'en-GB',
@@ -75,7 +84,6 @@ const CURRENCY_LOCALE: Record<string, string> = {
   PLN: 'pl-PL',
   CZK: 'cs-CZ',
   INR: 'en-IN',
-  JPY: 'ja-JP',
   MXN: 'es-MX',
   ZAR: 'en-ZA',
   SGD: 'en-SG',
@@ -164,7 +172,6 @@ export const CURRENCIES = [
   'PLN',
   'CZK',
   'INR',
-  'JPY',
   'SGD',
   'HKD',
   'MXN',

@@ -13,6 +13,7 @@
  * sanity-checked before it reaches any arithmetic.
  */
 import { z } from 'zod'
+import { UNSUPPORTED_CURRENCIES } from './money'
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.6-flash'
 
@@ -488,16 +489,13 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
  * dozen countries and a wrong guess puts the wrong currency on someone's
  * Splitwise expense.
  */
-const ISO_CODES =
-  /\b(USD|CAD|GBP|EUR|AUD|NZD|CHF|SEK|NOK|DKK|INR|JPY|MXN|SGD|HKD|ZAR|PLN|CZK)\b/
+const ISO_CODES = /\b(USD|CAD|GBP|EUR|AUD|NZD|CHF|SEK|NOK|DKK|INR|MXN|SGD|HKD|ZAR|PLN|CZK)\b/
 
 /** A symbol only one currency uses. The dollar sign is deliberately absent. */
 const SYMBOLS: [RegExp, string][] = [
   [/£/, 'GBP'],
   [/€/, 'EUR'],
   [/₹/, 'INR'],
-  [/[¥￥]/, 'JPY'],
-  [/₩/, 'KRW'],
   [/\bCHF\b/i, 'CHF'],
   [/\bzł\b/i, 'PLN'],
 ]
@@ -567,7 +565,11 @@ export function detectCurrency(text: string): { currency: string; dayFirst: bool
   // GST cannot be American — the United States has no GST — so the tax word
   // wins. It may still be Australia or Singapore rather than Canada, which
   // is why the review step lets anyone correct it in one tap.
-  const currency = iso ?? symbol ?? taxHint ?? 'USD'
+  const found = iso ?? symbol ?? taxHint ?? 'USD'
+  // Every amount in this app is an integer of hundredths, so a currency with
+  // no minor unit would be misreported. Fall back rather than show ¥12 for
+  // twelve yen thirty-five (see UNSUPPORTED_CURRENCIES).
+  const currency = UNSUPPORTED_CURRENCIES.has(found) ? 'USD' : found
 
   return { currency, dayFirst: currency !== 'USD' }
 }

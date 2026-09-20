@@ -36,7 +36,12 @@ function reset() {
     emails: [],
     nextExpenseId: 5000,
     nextGroupId: 7000,
-    clock: Date.parse('2026-09-12T10:00:00Z'),
+    // Rows are stamped relative to now, not from a fixed date. A hardcoded
+    // clock silently ages: once it drifted past seven days the dashboard's
+    // "active this week" counted none of them, and a passing suite began
+    // failing on a date rather than a change. Start a few hours ago so every
+    // fabricated row lands inside every window the metrics look at.
+    clock: Date.now() - 3 * 60 * 60 * 1000,
   }
 }
 reset()

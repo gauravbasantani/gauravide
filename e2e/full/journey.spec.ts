@@ -443,6 +443,14 @@ test('admin sees aggregate numbers, and the pages survive a real dashboard row',
   await expect(page.locator('[data-kpi="sent"] strong')).toHaveText('1')
   await expect(page.locator('[data-kpi="money"] strong')).toHaveText('$30.00')
   await expect(page.getByText('Pizza')).toHaveCount(0) // receipt contents never shown
+
+  // Reach: where the app is being used, by the currency on the receipt. A
+  // country name, never a person — the privacy boundary holds (MET-20).
+  await expect(page.getByRole('heading', { name: 'Where it is being used' })).toBeVisible()
+  const reach = page.locator('table').filter({ hasText: 'United States' })
+  await expect(reach.getByRole('cell', { name: 'United States' })).toBeVisible()
+  await expect(reach.getByRole('cell', { name: 'USD', exact: true })).toBeVisible()
+
   await expectNoErrorScreen(page)
   expect(problems).toEqual([])
 })

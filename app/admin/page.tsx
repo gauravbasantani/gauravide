@@ -392,6 +392,59 @@ export default async function AdminPage({
         title="Accounts and feedback"
         hint="One row per signed-in account, under a private label — counts and dates only."
       >
+        <section className={styles.panel} aria-labelledby="reach-title">
+          <div className={styles.panelHead}>
+            <h3 id="reach-title">Where it is being used</h3>
+            <span>By the currency on the receipt</span>
+          </div>
+          {m.reach.length === 0 ? (
+            <p className={styles.empty}>No scans or splits yet.</p>
+          ) : (
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">Where</th>
+                    <th scope="col">Currency</th>
+                    <th scope="col" className={styles.numCol}>
+                      Receipts scanned
+                    </th>
+                    <th scope="col" className={styles.numCol}>
+                      Splits sent
+                    </th>
+                    <th scope="col" className={styles.numCol}>
+                      Total split
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.reach.map((r) => (
+                    <tr key={r.currency}>
+                      <td>{r.where}</td>
+                      <td>
+                        <code>{r.currency}</code>
+                      </td>
+                      <td className={styles.numCol} data-num>
+                        {count(r.scans)}
+                      </td>
+                      <td className={styles.numCol} data-num>
+                        {count(r.splits)}
+                      </td>
+                      <td className={styles.numCol} data-num>
+                        {formatMoney(r.cents, r.currency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Said plainly, because a zero here means "not recorded", not "nobody". */}
+          <p className={styles.note}>
+            A scan counts towards a currency only if it was read after this was added.
+          </p>
+        </section>
+
         <section className={styles.panel} aria-labelledby="accounts-title">
           <div className={styles.panelHead}>
             <h3 id="accounts-title">Accounts</h3>

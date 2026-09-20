@@ -138,7 +138,13 @@ export async function POST(req: Request) {
     await writeSession(session)
     await record(
       'receipt_extracted',
-      { source: result.source, kind: mimeType === 'application/pdf' ? 'pdf' : 'image' },
+      {
+        source: result.source,
+        kind: mimeType === 'application/pdf' ? 'pdf' : 'image',
+        // Which countries this actually reaches. A currency is not personal
+        // data — it says Britain, not who was in the shop (SEC-7).
+        currency: result.receipt.currency,
+      },
       ownerId(session),
     )
 
