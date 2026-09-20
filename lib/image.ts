@@ -89,6 +89,11 @@ function encode(canvas: HTMLCanvasElement): Promise<Blob | null> {
 }
 
 export async function prepareImage(input: File): Promise<PreparedImage> {
+  // A PDF has no EXIF and no canvas can decode it. Running the three decode
+  // strategies against one only burns time before they all fail — and a
+  // canvas that DID decode it would flatten a multi-page receipt to page one.
+  if (isPdf(input)) return { file: input, width: 0, height: 0, exifStripped: true }
+
   for (const decode of [viaBitmapWithOptions, viaBitmap, viaImageElement]) {
     const decoded = await decode(input)
     if (!decoded) continue
@@ -104,6 +109,11 @@ export async function prepareImage(input: File): Promise<PreparedImage> {
       const ctx = canvas.getContext('2d')
       if (!ctx) continue
 
+      // A PNG (or a screenshot) can be transparent, and JPEG has no alpha:
+      // every transparent pixel encodes as BLACK, which is a receipt the
+      // reader cannot see at all. Paper is white — so paint white first.
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
       ctx.drawImage(decoded.source, 0, 0, width, height)
       const blob = await encode(canvas)
 
@@ -130,6 +140,11 @@ export async function prepareImage(input: File): Promise<PreparedImage> {
     height: 0,
     exifStripped: false,
   }
+}
+
+/** A PDF by type or by name — the extension is all some browsers report. */
+export function isPdf(file: File): boolean {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
 }
 
 /** A preview URL for the uploaded image. Caller revokes it. */

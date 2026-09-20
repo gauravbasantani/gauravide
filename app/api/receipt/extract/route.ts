@@ -1,5 +1,5 @@
 /**
- * POST /api/receipt/extract — image or PDF page in, items out.
+ * POST /api/receipt/extract — image or PDF in, items out. Every page of it.
  *
  * The five-step route shape (ARCHITECTURE.md §3.2): authenticate, throttle,
  * validate, delegate, respond. No business logic lives here.
@@ -12,7 +12,9 @@ import { stripJpegMetadata } from '@/lib/exif'
 import { dbConfigured, insert } from '@/lib/db'
 
 export const runtime = 'nodejs'
-export const maxDuration = 30
+// A multi-page PDF is a much longer read than a photo, and the primary
+// provider may be retried twice before degrading. 30s cut those off mid-read.
+export const maxDuration = 60
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB (FR-4)
 

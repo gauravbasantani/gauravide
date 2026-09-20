@@ -18,6 +18,28 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.6-flash'
 
 /* ─────────────────────────── Schema ─────────────────────────── */
 
+/**
+ * The most lines one receipt may carry. A single Costco run prints ~60; a
+ * multi-page PDF statement can print several hundred. The old cap of 200 was
+ * not a safety bound, it was a silent truncation: Zod rejected the whole
+ * extraction and the user saw a half-read receipt (see parseReceiptJson).
+ */
+export const MAX_ITEMS = 500
+
+/**
+ * "No value" arrives as null at least as often as by omitting the key — the
+ * prompt itself offers `"taxFlag": string|null`. Zod's .optional() rejects
+ * null, so a receipt with no tax letters failed validation on EVERY line and
+ * the user got an empty review screen beside a perfectly-read total. Coerce
+ * null to absent before validating.
+ */
+const nullish = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === null ? undefined : value), schema)
+
+/** Cents must be whole, but a model will hand back 450.0 — or 450.00001. */
+const centsField = (min: number, max: number) =>
+  z.number().finite().min(min).max(max).transform(Math.round)
+
 export const ExtractedItem = z.object({
   /**
    * Stable client-side identity. Assignments are keyed by this, never by row
@@ -26,29 +48,31 @@ export const ExtractedItem = z.object({
    */
   id: z.string().max(80).optional(),
   name: z.string().min(1).max(120),
-  qty: z.number().finite().min(0).max(999).default(1),
+  qty: nullish(z.number().finite().min(0).max(999).default(1)),
   /** Line total in cents, already multiplied by qty. Negative for discounts. */
-  cents: z.number().int().min(-1_000_000).max(10_000_000),
+  cents: centsField(-1_000_000, 10_000_000),
   /** The letter printed beside the line, e.g. Costco's A / E. */
-  taxFlag: z.string().max(3).optional(),
-  confidence: z.number().min(0).max(1).optional(),
+  taxFlag: nullish(z.string().max(3).optional()),
+  confidence: nullish(z.number().min(0).max(1).optional()),
 })
 
 export const ExtractedReceipt = z.object({
   merchant: z.string().max(120).nullable(),
   /** ISO date from the receipt itself, never today's date (GAP-11). */
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  currency: z.string().length(3).default('USD'),
-  items: z.array(ExtractedItem).max(200),
-  taxLines: z
-    .array(z.object({ flag: z.string().max(3), cents: z.number().int() }))
-    .max(10)
-    .default([]),
-  subtotalCents: z.number().int().nullable(),
-  taxCents: z.number().int().default(0),
-  tipCents: z.number().int().default(0),
-  feeCents: z.number().int().default(0),
-  totalCents: z.number().int().nullable(),
+  currency: nullish(z.string().length(3).default('USD')),
+  items: z.array(ExtractedItem).max(MAX_ITEMS),
+  taxLines: nullish(
+    z
+      .array(z.object({ flag: z.string().max(3), cents: centsField(-1_000_000, 10_000_000) }))
+      .max(10)
+      .default([]),
+  ),
+  subtotalCents: centsField(-1_000_000, 100_000_000).nullable(),
+  taxCents: nullish(centsField(-1_000_000, 10_000_000).default(0)),
+  tipCents: nullish(centsField(-1_000_000, 10_000_000).default(0)),
+  feeCents: nullish(centsField(-1_000_000, 10_000_000).default(0)),
+  totalCents: centsField(-1_000_000, 100_000_000).nullable(),
 })
 
 export type ExtractedReceipt = z.infer<typeof ExtractedReceipt>
@@ -172,7 +196,8 @@ export type ExtractionResult = {
 
 /* ─────────────────────────── Prompt ─────────────────────────── */
 
-const PROMPT = `You are reading a photograph of a shop or restaurant receipt.
+const PROMPT = `You are reading a shop or restaurant receipt. It may be a
+photograph, a scan, or a PDF of several pages.
 
 Return ONLY a JSON object, no prose, no markdown fence, matching exactly:
 
@@ -208,7 +233,12 @@ Rules, in order of importance:
 8. qty is how many units that LINE covers; cents is the line TOTAL for them.
 9. confidence is 0..1 — your own certainty about that line. Be honest: mark
    anything smudged, cut off, or ambiguous below 0.7.
-10. Omit tips unless printed. Do not invent a tip line.`
+10. Omit tips unless printed. Do not invent a tip line.
+11. COMPLETENESS IS THE WHOLE JOB. Transcribe EVERY line item, in order, from
+    the FIRST page to the LAST. A multi-page receipt continues on the next
+    page: keep going until you reach the printed total. Never summarise,
+    never collapse repeated lines into one, never stop early, never write
+    "..." or "and N more". A receipt with 180 lines returns 180 items.`
 
 /* ────────────────────────── Providers ───────────────────────── */
 
@@ -246,6 +276,21 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastError
 }
 
+/**
+ * Room for a long receipt to finish its sentence.
+ *
+ * The default output ceiling is a few thousand tokens. One page of items fits;
+ * a multi-page PDF does not, so the JSON came back cut off mid-item, failed to
+ * parse, and the whole extraction fell to the backup reader — which looked to
+ * the user like "it only found some of my items". ~180 items is ~24k tokens.
+ */
+const MAX_OUTPUT_TOKENS = 65_536
+
+type GeminiCandidate = {
+  content?: { parts?: { text?: string; thought?: boolean }[] }
+  finishReason?: string
+}
+
 async function callGemini(base64: string, mimeType: string): Promise<ExtractedReceipt> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new ProviderError('GEMINI_API_KEY not set', false)
@@ -259,7 +304,11 @@ async function callGemini(base64: string, mimeType: string): Promise<ExtractedRe
         contents: [
           { parts: [{ text: PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }] },
         ],
-        generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+        generationConfig: {
+          temperature: 0,
+          responseMimeType: 'application/json',
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+        },
       }),
     },
   )
@@ -272,16 +321,86 @@ async function callGemini(base64: string, mimeType: string): Promise<ExtractedRe
   }
 
   const body: unknown = await res.json()
-  const text = extractText(body)
+  const candidate = (body as { candidates?: GeminiCandidate[] }).candidates?.[0]
+
+  // Truncated output is half a receipt dressed as a parse error. Say so.
+  if (candidate?.finishReason === 'MAX_TOKENS') {
+    throw new ProviderError('gemini truncated output', true)
+  }
+
+  const text = extractText(candidate)
   if (!text) throw new ProviderError('gemini returned no text', true)
 
-  return ExtractedReceipt.parse(JSON.parse(stripFence(text)))
+  return parseReceiptJson(text)
 }
 
-function extractText(body: unknown): string | null {
-  const b = body as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
-  return b.candidates?.[0]?.content?.parts?.[0]?.text ?? null
+/**
+ * Every answer part, joined. A reasoning model splits its reply across parts
+ * and prefixes them with its thinking — taking parts[0] alone got either half
+ * the JSON or none of it.
+ */
+function extractText(candidate: GeminiCandidate | undefined): string | null {
+  const text = (candidate?.content?.parts ?? [])
+    .filter((part) => part.thought !== true && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('')
+    .trim()
+  return text || null
 }
+
+/**
+ * Validate the model's JSON without letting one bad line cost the user the
+ * other ninety-nine.
+ *
+ * Strict parse first, because that is the contract. When it fails — a stray
+ * null name, a qty of 1e9, one item too many — fall back to a per-item parse
+ * that keeps everything that validates. A receipt missing one line that
+ * sanityCheck then flags is worth far more than an empty review screen.
+ */
+export function parseReceiptJson(text: string): ExtractedReceipt {
+  let raw: unknown
+  try {
+    raw = JSON.parse(stripFence(text))
+  } catch {
+    throw new ProviderError('gemini returned unparsable JSON', true)
+  }
+
+  const strict = ExtractedReceipt.safeParse(raw)
+  if (strict.success) return strict.data
+
+  const salvaged = SalvagedReceipt.safeParse(raw)
+  if (!salvaged.success) throw new ProviderError('gemini returned an unusable shape', true)
+  return salvaged.data
+}
+
+/** Same shape, but every field forgives itself and bad items are dropped. */
+const SalvagedReceipt = z.object({
+  merchant: z.string().max(120).nullable().catch(null),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .catch(null),
+  currency: nullish(z.string().length(3)).catch('USD'),
+  items: z
+    .array(z.unknown())
+    .catch([])
+    .transform((rows) =>
+      rows
+        .map((row) => ExtractedItem.safeParse(row))
+        .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+        .slice(0, MAX_ITEMS),
+    ),
+  taxLines: z
+    .array(z.object({ flag: z.string().max(3), cents: centsField(-1_000_000, 10_000_000) }))
+    .max(10)
+    .catch([]),
+  subtotalCents: centsField(-1_000_000, 100_000_000).nullable().catch(null),
+  taxCents: centsField(-1_000_000, 10_000_000).catch(0),
+  tipCents: centsField(-1_000_000, 10_000_000).catch(0),
+  feeCents: centsField(-1_000_000, 10_000_000).catch(0),
+  totalCents: centsField(-1_000_000, 100_000_000).nullable().catch(null),
+})
 
 function stripFence(text: string): string {
   return text
@@ -300,12 +419,18 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
   const key = process.env.OCRSPACE_API_KEY
   if (!key) throw new ProviderError('OCRSPACE_API_KEY not set', false)
 
+  const isPdf = mimeType === 'application/pdf'
   const form = new URLSearchParams({
     base64Image: `data:${mimeType};base64,${base64}`,
     language: 'eng',
     isTable: 'true',
-    OCREngine: '2',
+    // Engine 2 reads photos better but refuses multi-page PDFs; engine 1 is
+    // the only one that returns every page, which matters more here.
+    OCREngine: isPdf ? '1' : '2',
     scale: 'true',
+    // Without an explicit filetype a base64 PDF is sniffed as an image and
+    // only the first page comes back.
+    ...(isPdf ? { filetype: 'PDF' } : {}),
   })
 
   const res = await fetch('https://api.ocr.space/parse/image', {
@@ -324,7 +449,12 @@ async function callOcrSpace(base64: string, mimeType: string): Promise<Extractio
     throw new ProviderError(String(body.ErrorMessage ?? 'ocrspace failed'), false)
   }
 
-  const rawText = body.ParsedResults?.[0]?.ParsedText ?? ''
+  // One ParsedResults entry PER PAGE. Reading only [0] threw away every page
+  // after the first, so a two-page PDF came back half-read.
+  const rawText = (body.ParsedResults ?? [])
+    .map((page) => page.ParsedText ?? '')
+    .filter((page) => page.trim() !== '')
+    .join('\n')
   return {
     source: 'ocrspace',
     receipt: parseLines(rawText),
@@ -442,7 +572,7 @@ export function parseLines(text: string): ExtractedReceipt {
     merchant,
     date,
     currency: 'USD',
-    items,
+    items: items.slice(0, MAX_ITEMS),
     taxLines,
     subtotalCents,
     taxCents: taxLines.length > 0 ? summedTaxLines : (taxCents ?? 0),

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { CameraCapture } from './CameraCapture'
-import { prepareImage, previewUrl } from '@/lib/image'
+import { isPdf, prepareImage, previewUrl } from '@/lib/image'
 import type { ExtractedReceipt } from '@/lib/receipt'
 import styles from './UploadStep.module.css'
 import flow from './flow.module.css'
@@ -54,8 +54,7 @@ export function UploadStep({ onExtracted, onManual }: Props) {
 
   function setFilePreview(file: File | null) {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current)
-    const isPdf = file?.type === 'application/pdf' || /\.pdf$/i.test(file?.name ?? '')
-    const next = file && !isPdf ? previewUrl(file) : null
+    const next = file && !isPdf(file) ? previewUrl(file) : null
     previewRef.current = next
     setPreview(next)
   }
