@@ -121,9 +121,10 @@ export default async function Home({
         </h1>
 
         <p className={[styles.tagline, 'rise', 'rise-2'].join(' ')}>
-          No spreadsheet. No calculator. Add a photo or PDF of any receipt from Walmart, Safeway,
-          a restaurant, anywhere, or type it in yourself. Tap who had what. It lands in Splitwise as
-          an exact expense, item by item, tax and all.
+          No spreadsheet. No calculator. Add a photo or PDF of any receipt — a supermarket, a
+          restaurant, anywhere in the world — or type it in yourself. Tap who had what. It lands in
+          Splitwise as an exact expense, item by item, tax and all, in the currency the receipt was
+          printed in.
         </p>
 
         <div className={[styles.actions, 'rise', 'rise-3'].join(' ')}>

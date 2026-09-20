@@ -109,7 +109,9 @@ const QA: { q: string; a: React.ReactNode }[] = [
         Most receipts print a code beside each line marking its tax rate. Gauravide reads those and
         charges tax to whoever took the taxed items. If you bought only tax-exempt groceries you pay
         none of the 8% charged on someone else&rsquo;s household goods. If the receipt has no codes,
-        tax is split in proportion to each person&rsquo;s items, and the app says so.
+        tax is split in proportion to each person&rsquo;s items, and the app says so. Whatever your
+        country calls it — VAT, GST, HST, ALV, MOMS, MWST, TVA, IVA — it is read as tax and never
+        charged to someone as though it were an item they bought.
       </p>
     ),
   },
@@ -163,6 +165,43 @@ const QA: { q: string; a: React.ReactNode }[] = [
           This app has its own limit — <strong>30 expenses an hour per account</strong> — to protect
           the shared free quotas. The send screen shows how many you&rsquo;ve sent this hour and in
           the last 24 hours, so you always know where you stand.
+        </p>
+        <p>
+          Scanning has a separate, shared ceiling: the receipt reader runs on a free tier with a
+          daily cap across everyone using Gauravide. When it runs out the app falls back to a
+          simpler reader rather than stopping — it is less accurate, especially on a photo taken at
+          an angle, and it says so on the review screen so you know to check every line. Typing a
+          receipt in by hand always works and is never rate limited.
+        </p>
+      </>
+    ),
+  },
+  {
+    q: 'Does it work outside the United States?',
+    a: (
+      <>
+        <p>
+          Yes. Gauravide reads the currency off the receipt rather than assuming dollars, and the
+          expense reaches Splitwise in that currency. It works out which one from what the receipt
+          prints: a currency code, then a symbol only one currency uses — £, €, ₹ — and then the
+          tax word, which names the country. GST and HST mean Canada, ALV Finland, MOMS Sweden, MVA
+          Norway, MWST Switzerland, BTW the Netherlands, TVA France, IVA Spain or Italy, VAT Britain
+          and much of Europe.
+        </p>
+        <p>
+          Dates are read the way your country writes them, so 14/09 is 14 September, not an error.
+          Decimal commas are understood: <strong>1.234,56</strong> and <strong>1,234.56</strong> are
+          the same amount.
+        </p>
+        <p>
+          A plain dollar sign is the one thing it cannot be certain about — Canada, Australia, New
+          Zealand and Singapore all print one. So the currency sits on the review screen as a
+          dropdown you can change in a tap, and it is worth a glance before you send: Splitwise
+          cannot change an expense&rsquo;s currency afterwards.
+        </p>
+        <p>
+          Currencies without cents — yen, won — are not supported yet; the app falls back to dollars
+          rather than quietly showing you the wrong number.
         </p>
       </>
     ),

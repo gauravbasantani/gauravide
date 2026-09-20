@@ -43,6 +43,11 @@ export default function About() {
           Gauravide reads those codes and charges tax to the people who actually incurred it.
           Splitting tax evenly quietly overcharges whoever bought the groceries.
         </p>
+        <p>
+          Whatever your country calls it — VAT, GST, HST, ALV, MOMS, MWST, TVA, IVA — it is read as
+          tax, never as something a person bought. The currency comes off the receipt too, so a
+          receipt in pounds reaches Splitwise in pounds.
+        </p>
       </div>
 
       <div className={styles.callout}>

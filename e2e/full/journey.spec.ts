@@ -19,6 +19,8 @@ type ExpenseState = {
   cost: string
   description: string
   group_id: number
+  /** What Splitwise itself was told the money was. */
+  currency_code: string
   users: { user_id: number; paid_share: string; owed_share: string }[]
   deleted: boolean
   updates: number
@@ -422,6 +424,75 @@ test('feedback is saved and emails the configured admin', async ({ page }) => {
     text: expect.stringContaining('Please add a dark receipt preview.'),
   })
   expect(email?.text).toContain('maya@example.com')
+})
+
+test('a receipt in pounds reaches Splitwise in pounds, tax charged to whoever incurred it', async ({
+  page,
+}) => {
+  // The whole journey for a receipt from outside the United States: read in
+  // its own currency, checked, split between two people, and sent. The
+  // assertion that matters is the last one — what Splitwise was actually
+  // told, not what this app believed (FR-60, FR-61).
+  const problems = watchForBreakage(page)
+
+  await page.route('**/api/receipt/extract', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        source: 'gemini',
+        warnings: [],
+        receipt: {
+          merchant: 'Tesco Extra',
+          date: '2026-09-14',
+          currency: 'GBP',
+          items: [
+            { id: 'a', name: 'Cheddar 400g', qty: 1, cents: 350, taxFlag: 'A', confidence: 0.99 },
+            { id: 'b', name: 'Washing powder', qty: 1, cents: 650, taxFlag: 'B', confidence: 0.99 },
+          ],
+          taxLines: [{ flag: 'B', cents: 130 }],
+          subtotalCents: 1000,
+          taxCents: 130,
+          tipCents: 0,
+          feeCents: 0,
+          totalCents: 1130,
+        },
+      }),
+    }),
+  )
+
+  await page.goto('/new')
+  await page.locator('input[type="file"]').last().setInputFiles(RECEIPT)
+  await page.getByRole('button', { name: /read this receipt/i }).click()
+  await expect(page.getByRole('heading', { name: /check the items/i })).toBeVisible()
+
+  // Pounds on screen, and the currency is a control rather than a label.
+  await expect(page.getByLabel('Currency')).toHaveValue('GBP')
+  await expect(page.getByText('£11.30').first()).toBeVisible()
+
+  await page.getByRole('button', { name: /looks right/i }).click()
+  await page.getByRole('button', { name: /add person/i }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Mayur Sabankar' }).click()
+  await page.getByRole('button', { name: /everyone shares everything/i }).click()
+  await page.getByRole('button', { name: /next: who paid/i }).click()
+  await page.getByRole('button', { name: /^no group/i }).click()
+  await expect(page.getByText('£11.30').first()).toBeVisible()
+  await page.getByRole('button', { name: /^add to splitwise$/i }).click()
+  await expect(page.getByRole('heading', { name: 'Added to Splitwise' })).toBeVisible()
+
+  const state = await backend()
+  const expense = state.expenses.at(-1)
+  expect(expense?.currency_code).toBe('GBP')
+  expect(expense?.cost).toBe('11.30')
+  // Every share still adds back to the total, in pounds.
+  const owed = (expense?.users ?? []).reduce((sum, u) => sum + Math.round(Number(u.owed_share) * 100), 0)
+  expect(owed).toBe(1130)
+
+  // And the saved split remembers the currency for its own page.
+  expect(state.splits.at(-1)?.data).toMatchObject({ currency: 'GBP' })
+
+  await expectNoErrorScreen(page)
+  expect(problems).toEqual([])
 })
 
 test('admin sees aggregate numbers, and the pages survive a real dashboard row', async ({ page }) => {

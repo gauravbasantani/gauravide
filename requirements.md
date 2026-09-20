@@ -1741,3 +1741,10 @@ though it were something they ate.
 - **OPS-3 — the free vision quota is 20 requests per day for the whole project.** Past that,
   every user gets the backup reader, which is markedly worse on real photographs. This is a
   billing setting, not a code change, and it is the single largest risk to a public launch.
+- **OPS-4 — a spent daily allowance fails fast.** A 429 is not one thing: a per-minute burst
+  clears in seconds, a spent daily allowance does not clear today. Retrying the second kind
+  spent three more units of an allowance already at zero and made the user wait through two
+  backoffs first — measured at 45 seconds to reach the backup reader. Google names the limit in
+  the error body, so a per-day 429 is now non-retryable and opens a short circuit that sends
+  the next receipt straight to the fallback. Anything ambiguous is still treated as transient
+  and retried, because wrongly disabling the good reader is the worse mistake.

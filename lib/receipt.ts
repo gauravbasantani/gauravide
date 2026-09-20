@@ -305,9 +305,42 @@ type GeminiCandidate = {
   finishReason?: string
 }
 
+/**
+ * When the daily allowance is known to be spent, in epoch milliseconds.
+ *
+ * Per instance and deliberately not shared: it is an optimisation, not a
+ * source of truth. Once the reader has said "no more today", every further
+ * receipt would pay three API round trips and two backoffs — about forty-five
+ * seconds — only to fall back anyway. The user should reach the backup reader
+ * immediately instead, and the allowance should not be spent proving a point.
+ */
+let quotaSpentUntil = 0
+
+/**
+ * Is this 429 the daily allowance, or a momentary burst?
+ *
+ * Google names the limit in the error body. A per-day quota id means today is
+ * over; anything else is worth another try in a moment. When the body says
+ * nothing useful, assume the kinder reading and retry.
+ */
+async function dailyQuotaExhausted(res: Response): Promise<number | null> {
+  const body = await res.text().catch(() => '')
+  if (!/PerDay|per day/i.test(body)) return null
+
+  // Google's free tier resets at midnight Pacific. Without a stated reset,
+  // hold the circuit open for an hour and try again then — never longer,
+  // because a wrong guess here would disable the good reader for nothing.
+  const stated = body.match(/"retryDelay"\s*:\s*"(\d+)s"/)?.[1]
+  const seconds = stated ? Number(stated) : 3600
+  return Date.now() + Math.min(Math.max(seconds, 60), 3600) * 1000
+}
+
 async function callGemini(base64: string, mimeType: string): Promise<ExtractedReceipt> {
   const key = process.env.GEMINI_API_KEY
   if (!key) throw new ProviderError('GEMINI_API_KEY not set', false)
+  if (Date.now() < quotaSpentUntil) {
+    throw new ProviderError('gemini daily quota spent', false)
+  }
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
@@ -328,10 +361,20 @@ async function callGemini(base64: string, mimeType: string): Promise<ExtractedRe
   )
 
   if (!res.ok) {
-    // 429 = quota exhausted, 503 = "high demand" (common and transient),
-    // other 5xx = their problem. All are worth retrying before degrading.
-    const retryable = res.status === 429 || res.status >= 500
-    throw new ProviderError(`gemini ${res.status}`, retryable)
+    // 503 and other 5xx are their problem and usually pass. A 429 is not one
+    // thing: a per-minute burst clears in seconds, a spent DAILY allowance
+    // does not clear today. Retrying the second kind spends three more of an
+    // allowance that is already gone, and makes the user wait through two
+    // backoffs to be told the same thing.
+    if (res.status === 429) {
+      const daily = await dailyQuotaExhausted(res)
+      if (daily) {
+        quotaSpentUntil = daily
+        throw new ProviderError('gemini daily quota spent', false)
+      }
+      throw new ProviderError('gemini 429', true)
+    }
+    throw new ProviderError(`gemini ${res.status}`, res.status >= 500)
   }
 
   const body: unknown = await res.json()
