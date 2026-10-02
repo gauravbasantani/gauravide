@@ -11,7 +11,7 @@ export default defineConfig({
   testDir: './e2e',
   // The full suite has its own config, servers and stand-in backend, and the
   // deployed suite visits a live URL rather than anything we start here.
-  testIgnore: ['**/full/**', '**/deployed/**'],
+  testIgnore: ['**/full/**', '**/deployed/**', '**/shots/**'],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,

@@ -16,11 +16,25 @@ import { randomUUID } from 'node:crypto'
 
 const PORT = Number(process.env.MOCK_PORT ?? 4545)
 
-const ME = { id: 101, first_name: 'Gaurav', last_name: 'Basantani', email: 'g@example.com' }
-const FRIENDS = [
-  { id: 202, first_name: 'Mayur', last_name: 'Sabankar', email: 'm@example.com' },
-  { id: 303, first_name: 'Maya', last_name: 'Patel', email: 'maya@example.com' },
-]
+/**
+ * Who the stand-in Splitwise says you are, and who your friends are.
+ *
+ * Overridable so a screenshot run can use neutral sample names instead of
+ * anyone's real ones. The defaults are what the test suite asserts against,
+ * so leaving MOCK_IDENTITIES unset changes nothing.
+ */
+const IDENTITIES = process.env.MOCK_IDENTITIES
+  ? JSON.parse(process.env.MOCK_IDENTITIES)
+  : {
+      me: { id: 101, first_name: 'Gaurav', last_name: 'Basantani', email: 'g@example.com' },
+      friends: [
+        { id: 202, first_name: 'Mayur', last_name: 'Sabankar', email: 'm@example.com' },
+        { id: 303, first_name: 'Maya', last_name: 'Patel', email: 'maya@example.com' },
+      ],
+    }
+
+const ME = IDENTITIES.me
+const FRIENDS = IDENTITIES.friends
 
 let state
 function reset() {
